@@ -1,0 +1,25 @@
+plugins {
+    id 'scala'
+    id "com.github.johnrengelman.shadow" version "5.1.0"
+}
+
+version '0.1.0'
+
+// define repositories
+repositories {
+    mavenCentral()
+}
+
+// define dependencies
+dependencies {
+    implementation 'org.apache.spark:spark-sql_2.11:2.3.2'
+    implementation 'org.scala-lang:scala-library:2.11.12'
+    testImplementation 'org.scalatest:scalatest:2.11_3.0.0'
+    testImplementation 'junit:junit:4.12'
+}
+
+// added via (https://brokenco.de/2015/07/15/gradle-goodness-excluding-depends-from-shadow.html) to remove shadow jar dependencies - 20190701
+configurations {
+    runtime.exclude module: 'spark-sql_2.11'
+    runtime.exclude module: 'scala-library'
+}
