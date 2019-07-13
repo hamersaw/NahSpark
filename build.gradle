@@ -13,6 +13,7 @@ repositories {
 // define dependencies
 dependencies {
     implementation 'org.apache.spark:spark-sql_2.11:2.4.3'
+    implementation 'org.locationtech.jts:jts-core:1.16.0'
     implementation 'org.scala-lang:scala-library:2.11.12'
     testImplementation 'org.scalatest:scalatest:2.11_3.0.0'
     testImplementation 'junit:junit:4.12'
