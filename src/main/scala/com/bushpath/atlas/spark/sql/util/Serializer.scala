@@ -1,8 +1,9 @@
-package com.bushpath.atlas.spark.sql.util;
+package com.bushpath.atlas.spark.sql.util
 
+import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
 import org.locationtech.jts.geom.{Coordinate, CoordinateSequence, Geometry, GeometryFactory, LinearRing, LineString, Point, Polygon}
 import org.locationtech.jts.geom.impl.CoordinateArraySequence
-import java.io.{DataInputStream, DataOutputStream}
+import java.io.{BufferedInputStream, BufferedOutputStream, ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
 
 object Serializer {
   final val lineString = 0x01
@@ -10,6 +11,23 @@ object Serializer {
   final val polygon = 0x03
 
   final val geometryFactory = new GeometryFactory();
+
+  def deserialize(arrayData: ArrayData): Geometry = {
+    // intialize input streams
+    val byteIn = new ByteArrayInputStream(arrayData.toByteArray)
+    val bufIn = new BufferedInputStream(byteIn)
+    val in = new DataInputStream(bufIn)
+
+    // serialize geometry
+    val geometry = this.deserialize(in)
+
+    // close input streams
+    in.close
+    bufIn.close
+    byteIn.close
+
+    geometry
+  }
 
   def deserialize(in: DataInputStream): Geometry = {
     val geometryType = in.read().asInstanceOf[Byte]
@@ -49,7 +67,7 @@ object Serializer {
       : CoordinateSequence = {
     val numPoints = in.readInt
     val coordinateSequence = new CoordinateArraySequence(numPoints)
-    for (i <- 0 to numPoints) {
+    for (i <- 0 to (numPoints - 1)) {
       val x = in.readDouble
       coordinateSequence.setOrdinate(i, 0, x)
 
@@ -58,6 +76,32 @@ object Serializer {
     }
 
     coordinateSequence
+  }
+
+  def serialize(geometry: Geometry): ArrayData = {
+    // TODO determine geometry serialized size
+    /*val byteCount = obj match {
+      case lineString: LineString => 1 + (obj.getNumPoints() * 2 * 8);
+      case point: Point => 1 + (obj.getNumPoints() * 2 * 8);
+      case polygon: Polygon => 1 + (3 * 4) + (obj.getNumPoints() * 2 * 8);
+    }
+    //val byteOut = new ByteArrayOutputStream(byteCount)*/
+
+    // intialize output streams
+    val byteOut = new ByteArrayOutputStream()
+    val bufOut = new BufferedOutputStream(byteOut)
+    val out = new DataOutputStream(bufOut)
+
+    // serialize geometry
+    this.serialize(geometry, out)
+
+    // close output streams
+    out.close
+    bufOut.close
+    byteOut.close
+
+    // return byte array
+    new GenericArrayData(byteOut.toByteArray)
   }
 
   def serialize(geometry: Geometry, out: DataOutputStream): Unit = {
