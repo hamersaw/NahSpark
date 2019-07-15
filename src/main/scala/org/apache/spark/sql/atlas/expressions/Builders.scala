@@ -11,11 +11,11 @@ import org.locationtech.jts.geom.impl.CoordinateArraySequence
 import com.bushpath.atlas.spark.sql.util.Serializer;
 import org.apache.spark.sql.atlas.AtlasGeometryUDT
 
-object Constructors {
+object Builders {
   final val geometryFactory = new GeometryFactory()
 }
 
-case class ST_GeometryFromWKT(inputExpressions: Seq[Expression])
+/*case class BuildGeometryFromWkt(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback {
   override def dataType: DataType = new AtlasGeometryUDT()
 
@@ -26,24 +26,28 @@ case class ST_GeometryFromWKT(inputExpressions: Seq[Expression])
   override def nullable: Boolean = false;
 
   override def children: Seq[Expression] = inputExpressions;
-}
+}*/
 
-case class ST_Point(inputExpressions: Seq[Expression])
+case class BuildPoint(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback {
   override def dataType: DataType = new AtlasGeometryUDT()
 
   override def eval(input: InternalRow): Any = {
-    //assert(inputExpressions.length == 2)
-    //val x = inputExpressions(0).eval(input).asInstanceOf[Decimal].toDouble
-    //val y = inputExpressions(1).eval(input).asInstanceOf[Decimal].toDouble
-    val x = inputExpressions(0).eval(input).asInstanceOf[Double]
-    val y = inputExpressions(1).eval(input).asInstanceOf[Double]
+    val x = inputExpressions(0).eval(input) match {
+      case decimal: Decimal => decimal.toDouble;
+      case double: Double => double;
+    };
+
+    val y = inputExpressions(1).eval(input) match {
+      case decimal: Decimal => decimal.toDouble;
+      case double: Double => double;
+    };
 
     var coordinateSequence = new CoordinateArraySequence(1)
     coordinateSequence.setOrdinate(0, 0, x);
     coordinateSequence.setOrdinate(0, 1, y);
     var point = new Point(coordinateSequence,
-      Constructors.geometryFactory);
+      Builders.geometryFactory);
     return Serializer.serialize(point)
   }
 

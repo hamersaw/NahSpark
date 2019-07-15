@@ -9,21 +9,20 @@ import org.apache.spark.sql.atlas.expressions._
 
 object AtlasRegister {
   final val expressions:Seq[FunctionBuilder] = Seq(
-    ST_GeometryFromWKT,
-    ST_Point
+    BuildPoint,
+    Distance
   )
 
-  def registerUDF(sparkSession: SparkSession) = {
+  def init(sparkSession: SparkSession) = {
+    // register AtlasGeometryUDT
+    UDTRegistration.register(classOf[Geometry].getName,
+      classOf[AtlasGeometryUDT].getName)
+
     // register expressions
     val functionRegistry = sparkSession.sessionState.functionRegistry
     for (expression <- this.expressions) {
       functionRegistry.createOrReplaceTempFunction(
         expression.getClass.getSimpleName.dropRight(1), expression)
     }
-  }
-
-  def registerUDT() = {
-    UDTRegistration.register(classOf[Geometry].getName,
-      classOf[AtlasGeometryUDT].getName)
   }
 }
