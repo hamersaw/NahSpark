@@ -10,7 +10,10 @@ import org.apache.spark.sql.atlas.expressions._
 object AtlasRegister {
   final val expressions:Seq[FunctionBuilder] = Seq(
     BuildPoint,
-    Distance
+    // DoubleExpressions
+    Area,
+    Distance,
+    Length
   )
 
   def init(sparkSession: SparkSession) = {

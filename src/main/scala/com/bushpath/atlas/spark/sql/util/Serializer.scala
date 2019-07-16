@@ -10,8 +10,6 @@ object Serializer {
   final val point = 0x02
   final val polygon = 0x03
 
-  final val geometryFactory = new GeometryFactory();
-
   def deserialize(arrayData: ArrayData): Geometry = {
     // intialize input streams
     val byteIn = new ByteArrayInputStream(arrayData.toByteArray)
@@ -35,30 +33,30 @@ object Serializer {
       case this.lineString => {
         // deserialize line string
         val coordinateSequence = deserializeCoordinateSequence(in)
-        new LineString(coordinateSequence, this.geometryFactory)
+        new LineString(coordinateSequence, GeometryUtil.factory)
       };
       case this.point => {
         // deserialize point
         val coordinateSequence = deserializeCoordinateSequence(in)
-        new Point(coordinateSequence, this.geometryFactory)
+        new Point(coordinateSequence, GeometryUtil.factory)
       };
       case this.polygon => {
         // deserialize polygon
         val coordinateSequence = deserializeCoordinateSequence(in)
         val exteriorRing = new LinearRing(coordinateSequence,
-          this.geometryFactory)
+          GeometryUtil.factory)
 
         val numInteriorRing = in.readInt
         val interiorRingArray = new Array[LinearRing](numInteriorRing)
         for (i <- 0 to numInteriorRing) {
           val coordinateSequence = deserializeCoordinateSequence(in)
           val interiorRing = new LinearRing(coordinateSequence,
-            this.geometryFactory)
+            GeometryUtil.factory)
 
           interiorRingArray(i) = interiorRing
         }
 
-        new Polygon(exteriorRing, interiorRingArray, this.geometryFactory)
+        new Polygon(exteriorRing, interiorRingArray, GeometryUtil.factory)
       };
     }
   }

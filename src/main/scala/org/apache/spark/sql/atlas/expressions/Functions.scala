@@ -8,20 +8,41 @@ import org.apache.spark.sql.types.{DataType, DoubleType}
 
 import com.bushpath.atlas.spark.sql.util.Serializer;
 
-case class Distance(inputExpressions: Seq[Expression])
-    extends Expression with CodegenFallback {
+abstract class DoubleExpression(inputExpressions: Seq[Expression])
+    extends Expression with CodegenFallback with Serializable {
   override def dataType: DataType = DoubleType
 
+  override def nullable: Boolean = false;
+
+  override def children: Seq[Expression] = inputExpressions;
+}
+
+case class Area(inputExpressions: Seq[Expression])
+    extends DoubleExpression(inputExpressions) with CodegenFallback {
+  override def eval(input: InternalRow): Any = {
+    val array = inputExpressions(0).eval(input).asInstanceOf[ArrayData]
+    val geometry = Serializer.deserialize(array)
+    geometry.getArea()
+  }
+}
+
+case class Distance(inputExpressions: Seq[Expression])
+    extends DoubleExpression(inputExpressions) with CodegenFallback {
   override def eval(input: InternalRow): Any = {
     val arrayOne = inputExpressions(0).eval(input).asInstanceOf[ArrayData]
     val arrayTwo = inputExpressions(1).eval(input).asInstanceOf[ArrayData]
 
     val geometryOne = Serializer.deserialize(arrayOne)
     val geometryTwo = Serializer.deserialize(arrayTwo)
-    return geometryOne.distance(geometryTwo)
+    geometryOne.distance(geometryTwo)
   }
+}
 
-  override def nullable: Boolean = false;
-
-  override def children: Seq[Expression] = inputExpressions;
+case class Length(inputExpressions: Seq[Expression])
+    extends DoubleExpression(inputExpressions) with CodegenFallback {
+  override def eval(input: InternalRow): Any = {
+    val array = inputExpressions(0).eval(input).asInstanceOf[ArrayData]
+    val geometry = Serializer.deserialize(array)
+    geometry.getLength()
+  }
 }
