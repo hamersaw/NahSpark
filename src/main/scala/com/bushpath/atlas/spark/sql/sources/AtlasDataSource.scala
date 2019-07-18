@@ -34,7 +34,6 @@ class AtlasDataSource extends DataSourceRegister with RelationProvider {
     //  Map(), files)
 
     // initialize AtlasRelation
-    new AtlasRelation(sqlContext, 
-      fileIndex, schema.orNull, fileFormat)
+    new AtlasRelation(sqlContext, fileIndex, schema.orNull, fileFormat)
   }
 }

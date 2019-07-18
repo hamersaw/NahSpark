@@ -1,7 +1,7 @@
 package org.apache.spark.sql.atlas
 
 import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{ArrayType, ByteType, DataType, UserDefinedType}
 import org.locationtech.jts.geom.{Geometry, LineString, Point, Polygon}
 
 import com.bushpath.atlas.spark.sql.util.Serializer

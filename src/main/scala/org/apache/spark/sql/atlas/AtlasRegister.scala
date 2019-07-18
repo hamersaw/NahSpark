@@ -9,11 +9,38 @@ import org.apache.spark.sql.atlas.expressions._
 
 object AtlasRegister {
   final val expressions:Seq[FunctionBuilder] = Seq(
+    // BooleanExpressions
+    Contains,
+    Covers,
+    Crosses,
+    Disjoint,
+    Equals,
+    EqualsTollerance,
+    Intersects,
+    IsEmpty,
+    IsSimple,
+    IsValid,
+    Overlaps,
+    Touches,
+    Within,
+    // BuildExpressions
     BuildPoint,
     // DoubleExpressions
     Area,
     Distance,
-    Length
+    Length,
+    // GeometryExpressions
+    Buffer,
+    ConvexHull,
+    Difference,
+    Envelope,
+    Intersection,
+    Normalize,
+    SymDifference,
+    Union,
+    // IntegerExpressions
+    Dimension,
+    NumPoints
   )
 
   def init(sparkSession: SparkSession) = {
