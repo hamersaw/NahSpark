@@ -14,4 +14,4 @@ df.printSchema()
 //var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM atlas_test")
 
 //spatialDf.createOrReplaceTempView("spatial_test")
-//var distanceDf = spark.sql("SELECT point, Distance(point, BuildPoint(0.0, 10.0)) as distance, _c2, _c3 FROM spatial_test")
+//var distanceDf = spark.sql("SELECT point, Distance(point, BuildPoint(0.0, 10.0)) as distance, _c2, _c3 FROM spatial_test WHERE Distance(point, BuildPoint(0.0, 10.0)) > 50")

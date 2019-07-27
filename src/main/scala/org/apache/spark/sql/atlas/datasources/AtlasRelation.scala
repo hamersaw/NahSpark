@@ -31,7 +31,8 @@ class AtlasRelation(atlasSqlContext: SQLContext, files: Array[String],
   //override def needConversion: Boolean = true
 
   // TODO - implement unhandledFilters
-  //override def unhandledFilters(filters: Array[Filter]): Array[Filter] = filters
+  //override def unhandledFilters(filters: Array[Filter])
+  //    : Array[Filter] = filters
 
   override def buildScan(requiredColumns: Array[String],
       filters: Array[Filter]): RDD[Row] = {
