@@ -11,6 +11,7 @@ import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.datasources.InMemoryFileIndex
 import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
+import org.apache.spark.sql.sources.DataSourceRegister
 import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, ReadSupport}
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader
 
@@ -19,7 +20,14 @@ import com.bushpath.atlas.spark.sql.util.Parser
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
-class AtlasSource extends DataSourceV2 with ReadSupport {
+object AtlasSource {
+  final val GEOHASH_STR = "atlasGeohash"
+  final val TIMESTAMP_STR = "atlasTimestamp"
+}
+
+class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
+  override def shortName() = "atlas"
+
   /*override def createReader(options: DataSourceOptions)
       : DataSourceReader = {
     // use InMemoryFileIndex to discover paths

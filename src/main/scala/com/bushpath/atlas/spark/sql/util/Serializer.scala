@@ -77,13 +77,13 @@ object Serializer {
   }
 
   def serialize(geometry: Geometry): ArrayData = {
-    // TODO determine geometry serialized size
-    /*val byteCount = obj match {
-      case lineString: LineString => 1 + (obj.getNumPoints() * 2 * 8);
-      case point: Point => 1 + (obj.getNumPoints() * 2 * 8);
-      case polygon: Polygon => 1 + (3 * 4) + (obj.getNumPoints() * 2 * 8);
+    /*// TODO determine geometry serialized size
+    val byteCount = geometry match {
+      case lineString: LineString => 1 + (geometry.getNumPoints() * 2 * 8);
+      case point: Point => 1 + (geometry.getNumPoints() * 2 * 8);
+      case polygon: Polygon => 1 + (3 * 4) + (geometry.getNumPoints() * 2 * 8);
     }
-    //val byteOut = new ByteArrayOutputStream(byteCount)*/
+    val byteOut = new ByteArrayOutputStream(byteCount)*/
 
     // intialize output streams
     val byteOut = new ByteArrayOutputStream()

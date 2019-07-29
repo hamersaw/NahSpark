@@ -5,9 +5,10 @@ import com.bushpath.anamnesis.ipc.rpc.RpcClient
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.sources.{EqualTo, IsNotNull}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
-import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.{LongType, StringType, StructType};
 
 import com.bushpath.atlas.spark.sql.util.Parser
 
@@ -19,7 +20,14 @@ import scala.collection.mutable.ListBuffer
 class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
     dataSchema: StructType) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
-  private var requiredSchema = dataSchema
+  private var requiredSchema = {
+    var schema = StructType(dataSchema)
+    schema = schema.add(AtlasSource.GEOHASH_STR, StringType, true)
+    schema = schema.add(AtlasSource.TIMESTAMP_STR, LongType, true)
+    schema
+  }
+
+  private var filters: Array[Filter] = Array()
 
   override def readSchema: StructType = requiredSchema
 
@@ -103,14 +111,25 @@ class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
   }
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    // TODO
-    println("TODO - handle " + filters.length
-      + " filters: " + filters.toList)
+    // parse out filters applicable to the atlas file system
+    val (atlasFilters, rest) = filters.partition(isAtlasFilter(_))
+    this.filters = atlasFilters
 
-    filters
+    rest
   }
 
   override def pushedFilters: Array[Filter] = {
-    Array()
+    this.filters
+  }
+
+  private def isAtlasFilter(filter: Filter): Boolean = {
+    filter match {
+        case EqualTo(AtlasSource.GEOHASH_STR, _) => true
+        case IsNotNull(AtlasSource.GEOHASH_STR) => true
+        // TODO - include temporal filters (>, >=, ... etc)
+        //case EqualTo(AtlasSource.TIMESTAMP_STR, _) => true
+        //case IsNotNull(AtlasSource.TIMESTAMP_STR) => true
+        case _ => false
+    }
   }
 }

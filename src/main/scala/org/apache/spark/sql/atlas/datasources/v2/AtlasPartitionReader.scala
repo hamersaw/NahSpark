@@ -6,6 +6,7 @@ import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferPr
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos
 
 import org.apache.spark.sql.catalyst.InternalRow;
+// TODO - remove UnivocityParser dependencies if using our CsvParser
 import org.apache.spark.sql.execution.datasources.csv.{CSVOptions, UnivocityParser}
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader
 import org.apache.spark.sql.types.StructType;
@@ -22,7 +23,8 @@ class AtlasPartitionReader(dataSchema: StructType,
     blocks: Seq[HdfsProtos.LocatedBlockProto])
     extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
-  val parser = new UnivocityParser(dataSchema, requiredSchema, csvOptions)
+  //val parser = new UnivocityParser(dataSchema, requiredSchema, csvOptions)
+  val parser = new CsvParser(dataSchema, requiredSchema, csvOptions)
 
   var index = 0
 
