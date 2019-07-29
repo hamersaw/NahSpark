@@ -8,7 +8,7 @@ import org.apache.spark.sql.types.StructType;
 
 import scala.collection.JavaConversions._
 
-class AtlasPartition(schema: StructType,
+class AtlasPartition(dataSchema: StructType, requiredSchema: StructType,
     blocks: Seq[HdfsProtos.LocatedBlockProto])
     extends InputPartition[InternalRow] {
   override def preferredLocations: Array[String] = {
@@ -34,6 +34,6 @@ class AtlasPartition(schema: StructType,
 
   override def createPartitionReader
       : InputPartitionReader[InternalRow] = {
-    new AtlasPartitionReader(schema, blocks)
+    new AtlasPartitionReader(dataSchema, requiredSchema, blocks)
   }
 }

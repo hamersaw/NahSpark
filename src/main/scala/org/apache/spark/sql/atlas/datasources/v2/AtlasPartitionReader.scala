@@ -17,11 +17,12 @@ import java.util.Scanner
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
-class AtlasPartitionReader(schema: StructType,
+class AtlasPartitionReader(dataSchema: StructType,
+    requiredSchema: StructType,
     blocks: Seq[HdfsProtos.LocatedBlockProto])
     extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
-  val parser = new UnivocityParser(schema, schema, csvOptions)
+  val parser = new UnivocityParser(dataSchema, requiredSchema, csvOptions)
 
   var index = 0
 

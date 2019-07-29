@@ -5,7 +5,8 @@ import com.bushpath.anamnesis.ipc.rpc.RpcClient
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition}
+import org.apache.spark.sql.sources.Filter
+import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
 import org.apache.spark.sql.types.StructType;
 
 import com.bushpath.atlas.spark.sql.util.Parser
@@ -15,62 +16,40 @@ import java.util.{ArrayList, HashSet, List};
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
-class AtlasSourceReader(inputFiles: Array[String],
-    schema: StructType) extends DataSourceReader {
-  override def readSchema: StructType = schema
+class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
+    dataSchema: StructType) extends DataSourceReader
+    with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
+  private var requiredSchema = dataSchema
+
+  override def readSchema: StructType = requiredSchema
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
     // TODO - change hosts from ipAddr:port to datanodeUuid
-    var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
     var hosts: Map[String, HashSet[Long]] = Map()
 
-    for (inputFile <- inputFiles) {
-      // parse url path
-      val (ipAddress, port, path) = Parser.parseHdfsUrl(inputFile)
+    // process block locations
+    for (lbProto <- blocks.values) {
+      // parse block id
+      val blockId = lbProto.getB.getBlockId
 
-      // send GetFileInfo request
-      val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
-        "org.apache.hadoop.hdfs.protocol.ClientProtocol")
-      val gblRequest = ClientNamenodeProtocolProtos
-        .GetBlockLocationsRequestProto.newBuilder()
-          .setSrc(path)
-          .setOffset(0)
-          .setLength(2147483647)
-          .build
+      // parse locations
+      for (diProto <- lbProto.getLocsList) {
+        val didProto = diProto.getId
+        val address = didProto.getIpAddr + ":" + didProto.getXferPort
 
-      val gblIn = gblRpcClient.send("getBlockLocations", gblRequest)
-      val gblResponse = ClientNamenodeProtocolProtos
-        .GetBlockLocationsResponseProto.parseDelimitedFrom(gblIn)
-
-      gblIn.close
-      gblRpcClient.close
-
-      // process block locations
-      val lbProto = gblResponse.getLocations
-      for (lbProto <- lbProto.getBlocksList) {
-        // parse block id
-        val blockId = lbProto.getB.getBlockId
-        blocks += (blockId -> lbProto)
-
-        // parse locations
-        for (diProto <- lbProto.getLocsList) {
-          val didProto = diProto.getId
-          val address = didProto.getIpAddr + ":" + didProto.getXferPort
-
-          val set = hosts.get(address) match {
-            case None => {
-              val set: HashSet[Long] = new HashSet
-              hosts += (address -> set)
-              set
-            };
-            case Some(set) => {
-              set
-            };
-          }
-
-          set.add(blockId)
+        val set = hosts.get(address) match {
+          case None => {
+            val set: HashSet[Long] = new HashSet
+            hosts += (address -> set)
+            set
+          };
+          case Some(set) => {
+            set
+          };
         }
+
+        set.add(blockId)
       }
     }
 
@@ -111,10 +90,27 @@ class AtlasSourceReader(inputFiles: Array[String],
           partitionBlocks += blocks(blockId)
         }
 
-        partitions += new AtlasPartition(schema, partitionBlocks)
+        partitions += new AtlasPartition(dataSchema,
+          requiredSchema, partitionBlocks)
       }
     }
 
     partitions
+  }
+
+  override def pruneColumns(requiredSchema: StructType) = {
+    this.requiredSchema = requiredSchema
+  }
+
+  override def pushFilters(filters: Array[Filter]): Array[Filter] = {
+    // TODO
+    println("TODO - handle " + filters.length
+      + " filters: " + filters.toList)
+
+    filters
+  }
+
+  override def pushedFilters: Array[Filter] = {
+    Array()
   }
 }

@@ -54,5 +54,9 @@ object AtlasRegister {
       functionRegistry.createOrReplaceTempFunction(
         expression.getClass.getSimpleName.dropRight(1), expression)
     }
+
+    // register predicate pushdown optimization
+    //sparkSession.experimental.extraOptimizations =
+    //  Seq(AtlasPredicatePushdownOptimizationRule)
   }
 }
