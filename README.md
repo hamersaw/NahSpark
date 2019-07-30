@@ -38,10 +38,11 @@ Spatio-temporal spark implementation with optimizations for reading dataframes f
     - https://locationtech.github.io/jts/javadoc/
 - https://github.com/EsotericSoftware/kryo
     - https://github.com/eishay/jvm-serializers/wiki
-
 - https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-udfs.html
     - https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-PartitionedFile.html
 - https://datasystemslab.github.io/GeoSpark/tutorial/sql/
+- http://blog.madhukaraphatak.com/introduction-to-spark-two-part-6/
 
 ## TODO
-- everything
+- conversion of Atlas Expressions to translatable spatiotemporal filters 
+- support timestamp queries

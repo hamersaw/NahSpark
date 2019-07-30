@@ -9,31 +9,12 @@ import org.apache.spark.sql.types.StructType;
 import scala.collection.JavaConversions._
 
 class AtlasPartition(dataSchema: StructType, requiredSchema: StructType,
-    blocks: Seq[HdfsProtos.LocatedBlockProto])
+    blockId: Long, blockLength: Long, locations: Array[String])
     extends InputPartition[InternalRow] {
-  override def preferredLocations: Array[String] = {
-    var blocksPerHost = Map[String, Int]()
-    for (lbProto <- blocks) {
-      for (diProto <- lbProto.getLocsList) {
-        val ipAddr = diProto.getId.getIpAddr
-        blocksPerHost.get(ipAddr) match {
-          case None => {
-            blocksPerHost += (ipAddr -> 1)
-          };
-          case Some(x) => {
-            blocksPerHost += (ipAddr -> (x + 1))
-          }
-        }
-      }
-    }
+  override def preferredLocations: Array[String] = locations
 
-    // TODO - check if preferred locations is working
-    //println("PREFFERRED LOCATIONS: " + blocksPerHost.toSeq.sortWith(_._1 > _._1).map(x => x._1))
-    blocksPerHost.toSeq.sortWith(_._1 > _._1).map(x => x._1).toArray
-  }
-
-  override def createPartitionReader
-      : InputPartitionReader[InternalRow] = {
-    new AtlasPartitionReader(dataSchema, requiredSchema, blocks)
+  override def createPartitionReader: InputPartitionReader[InternalRow] = {
+    new AtlasPartitionReader(dataSchema, requiredSchema,
+      blockId, blockLength, locations)
   }
 }

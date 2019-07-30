@@ -15,6 +15,7 @@ import java.util.{ArrayList, HashSet, List};
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
+import scala.util.control.Breaks._
 
 class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
     dataSchema: StructType) extends DataSourceReader
@@ -45,10 +46,9 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
     val atlasQuery = atlasQueryExpressions.mkString("&")
 
-    // process block locations
+    // retrieve block list
     var hosts: Map[String, HashSet[Long]] = Map()
     var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
-    // TODO - change hosts from ipAddr:port to datanodeUuid
 
     for ((id, files) <- this.fileMap) {
       // parse ipAddress, port
@@ -88,8 +88,7 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
           // parse locations
           for (diProto <- lbProto.getLocsList) {
             val didProto = diProto.getId
-            val address = didProto.getIpAddr + ":"
-              + didProto.getXferPort
+            val address = didProto.getIpAddr + ":" + didProto.getXferPort
 
             val set = hosts.get(address) match {
               case Some(set) => set
@@ -107,46 +106,39 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
     }
 
     // compute partitions
-    for (blockId <- blocks.keys) {
-      // find host containing block with shortest blockId list
-      var blockHostOption: Option[String] = None
-      var blockHostLength = Integer.MAX_VALUE
-      for (host <- hosts.keys) {
-        val set = hosts(host)
-        if (set.contains(blockId)) {
-          if (blockHostOption == None || set.size < blockHostLength) {
-            blockHostOption = Some(host)
-            blockHostLength = set.size
+    val partitions: List[InputPartition[InternalRow]] = new ArrayList()
+    for ((blockId, lbProto) <- blocks) {
+      var locations = new ListBuffer[String]()
+      breakable { while (true) {
+        // find host containing block with shortest blockId list
+        var blockHostOption: Option[String] = None
+        var blockHostLength = Integer.MAX_VALUE
+
+        for (host <- hosts.keys) {
+          val set = hosts(host)
+          if (set.contains(blockId)) {
+            if (blockHostOption == None || set.size < blockHostLength) {
+              blockHostOption = Some(host)
+              blockHostLength = set.size
+            }
           }
         }
-      }
 
-      // remove block from all other hosts
-      val blockHost = blockHostOption.orNull
-      for (host <- hosts.keys) {
-        if (host != blockHost) {
-          val set = hosts(host)
-          set.remove(blockId)
+        blockHostOption match {
+          // if host found -> add to locations
+          case Some(blockHost) => {
+            locations += blockHost
+            hosts.get(blockHost).orNull.remove(blockId)
+          }
+          // if host not found -> no hosts left -> break
+          case None => break
         }
-      }
-    }
+      } }
 
-    // compile InputPartitions
-    val partitions: List[InputPartition[InternalRow]] = new ArrayList()
-    for (host <- hosts.keys) {
-      // if host contains blocks -> create partition
-      val set = hosts(host)
-      if (set.size != 0) {
-        var partitionBlocks =
-          new ListBuffer[HdfsProtos.LocatedBlockProto]()
-        for (blockId <- set) {
-          partitionBlocks += blocks(blockId)
-        }
-
-        partitions += new AtlasPartition(dataSchema,
-          requiredSchema, partitionBlocks)
-      }
-    }
+      // initialize block partition
+      partitions += new AtlasPartition(dataSchema, requiredSchema,
+        blockId, lbProto.getB.getNumBytes, locations.toArray)
+    } 
 
     partitions
   }

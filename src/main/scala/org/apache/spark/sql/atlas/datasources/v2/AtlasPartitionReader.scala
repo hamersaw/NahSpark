@@ -18,43 +18,26 @@ import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
 class AtlasPartitionReader(dataSchema: StructType,
-    requiredSchema: StructType,
-    blocks: Seq[HdfsProtos.LocatedBlockProto])
-    extends InputPartitionReader[InternalRow] {
+    requiredSchema: StructType, blockId: Long, blockLength: Long,
+    locations: Array[String]) extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
   val parser = new CsvParser(dataSchema, requiredSchema, csvOptions)
-
-  var index = 0
-
-  var inputStream: ByteArrayInputStream = null
-  var bufferedInputStream: BufferedInputStream = null
-  var scanner = getNextBlock
-
-  private def getNextBlock: Scanner = {
-    // close existing streams
-    this.close
-
-    // get next block
-    val lbProto = blocks(this.index)
-    val ebProto = lbProto.getB
-
-    // retrieve block data
-    val blockId = ebProto.getBlockId
-    val length = ebProto.getNumBytes
-    val blockData = new Array[Byte](length.toInt)
+  val inputStream = {
+    val blockData = new Array[Byte](blockLength.toInt)
 
     // read blocks from preferred locations first
-    // TODO - read block from local node -> not first in list
-    breakable { for (diProto <- lbProto.getLocsList) {
-      val didProto = diProto.getId
+    // TODO - find which node we're on
+    breakable { for (location <- locations) {
+      val locationFields = location.split(":")
+      val (ipAddress, port) = (locationFields(0), locationFields(1).toInt)
 
-      val socket = new Socket(didProto.getIpAddr, didProto.getXferPort)
+      val socket = new Socket(ipAddress, port)
       val dataOut = new DataOutputStream(socket.getOutputStream)
       val dataIn = new DataInputStream(socket.getInputStream)
 
       // send read block op and recv response
       DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-        blockId, 0, "AtlasPartitionReader", 0, length)
+        blockId, 0, "AtlasPartitionReader", 0, blockLength)
       val blockOpResponse = DataTransferProtocol
         .recvBlockOpResponse(dataIn)
 
@@ -78,33 +61,26 @@ class AtlasPartitionReader(dataSchema: StructType,
       break // TODO - check for success
     } }
 
-    this.index += 1
-
-    // open new streams
-    this.inputStream = new ByteArrayInputStream(blockData)
-    this.bufferedInputStream = new BufferedInputStream(this.inputStream)
-    new Scanner(this.bufferedInputStream, "UTF-8")
+    // open input streams
+    new ByteArrayInputStream(blockData)
   }
 
-  override def next: Boolean = {
-    while (index < blocks.size && !scanner.hasNextLine) {
-      this.scanner = this.getNextBlock
-    }
+  val bufferedInputStream = new BufferedInputStream(this.inputStream)
+  val scanner = new Scanner(this.bufferedInputStream, "UTF-8")
 
-    scanner.hasNextLine
+  override def next: Boolean = {
+    this.scanner.hasNextLine
   }
 
   override def get: InternalRow = {
-    val line = scanner.nextLine
+    val line = this.scanner.nextLine
 
     parser.parse(line)
   }
 
   override def close = {
-    if (this.scanner != null) {
-      this.scanner.close
-      this.bufferedInputStream.close
-      this.inputStream.close
-    }
+    this.scanner.close
+    this.bufferedInputStream.close
+    this.inputStream.close
   }
 }
