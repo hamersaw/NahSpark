@@ -3,6 +3,7 @@ package org.apache.spark.sql.atlas.datasources.v2
 import com.bushpath.anamnesis.ipc.rpc.RpcClient
 
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
+import org.apache.hadoop.fs.FileStatus
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.{EqualTo, IsNotNull}
@@ -17,13 +18,13 @@ import java.util.{ArrayList, HashSet, List};
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
-class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
+class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
     dataSchema: StructType) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     var schema = StructType(dataSchema)
-    schema = schema.add(AtlasSource.GEOHASH_STR, StringType, true)
-    schema = schema.add(AtlasSource.TIMESTAMP_STR, LongType, true)
+    schema = schema.add(AtlasSource.GEOHASH_FIELD, StringType, true)
+    schema = schema.add(AtlasSource.TIMESTAMP_FIELD, LongType, true)
     schema
   }
 
@@ -33,31 +34,77 @@ class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
-    // TODO - change hosts from ipAddr:port to datanodeUuid
-    var hosts: Map[String, HashSet[Long]] = Map()
+    // compile atlas filter query
+    var atlasQueryExpressions = new ListBuffer[String]()
+    for (filter <- filters) {
+      filter match {
+        case EqualTo(AtlasSource.GEOHASH_FIELD, const) =>
+          atlasQueryExpressions += ("g=" + const)
+        case IsNotNull(AtlasSource.GEOHASH_FIELD) => {}
+        case _ => println("TODO - support atlas filter:" + filter)
+      }
+    }
+
+    val atlasQuery = atlasQueryExpressions.mkString("&")
 
     // process block locations
-    for (lbProto <- blocks.values) {
-      // parse block id
-      val blockId = lbProto.getB.getBlockId
+    var hosts: Map[String, HashSet[Long]] = Map()
+    var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
+    // TODO - change hosts from ipAddr:port to datanodeUuid
 
-      // parse locations
-      for (diProto <- lbProto.getLocsList) {
-        val didProto = diProto.getId
-        val address = didProto.getIpAddr + ":" + didProto.getXferPort
+    for ((id, files) <- this.fileMap) {
+      // parse ipAddress, port
+      val idFields = id.split(":")
+      val (ipAddress, port) = (idFields(0), idFields(1).toInt)
 
-        val set = hosts.get(address) match {
-          case None => {
-            val set: HashSet[Long] = new HashSet
-            hosts += (address -> set)
-            set
-          };
-          case Some(set) => {
-            set
-          };
+      for (file <- files) {
+        // compile file path with atlasQuery
+        var path = file.getPath.toString
+        if (!atlasQuery.isEmpty) {
+          path += ("+" + atlasQuery)
         }
 
-        set.add(blockId)
+        // send GetFileInfo request
+        val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
+          "org.apache.hadoop.hdfs.protocol.ClientProtocol")
+        val gblRequest = ClientNamenodeProtocolProtos
+          .GetBlockLocationsRequestProto.newBuilder()
+            .setSrc(path)
+            .setOffset(0)
+            .setLength(file.getLen)
+            .build
+
+        val gblIn = gblRpcClient.send("getBlockLocations", gblRequest)
+        val gblResponse = ClientNamenodeProtocolProtos
+          .GetBlockLocationsResponseProto.parseDelimitedFrom(gblIn)
+        gblIn.close
+        gblRpcClient.close
+
+        // process block locations
+        val lbsProto = gblResponse.getLocations
+        for (lbProto <- lbsProto.getBlocksList) {
+          // parse block id
+          val blockId = lbProto.getB.getBlockId
+          blocks += (blockId -> lbProto)
+
+          // parse locations
+          for (diProto <- lbProto.getLocsList) {
+            val didProto = diProto.getId
+            val address = didProto.getIpAddr + ":"
+              + didProto.getXferPort
+
+            val set = hosts.get(address) match {
+              case Some(set) => set
+              case None => {
+                val set: HashSet[Long] = new HashSet
+                hosts += (address -> set)
+                set
+              }
+            }
+
+            set.add(blockId)
+          }
+        }
       }
     }
 
@@ -124,12 +171,12 @@ class AtlasSourceReader(blocks: Map[Long, HdfsProtos.LocatedBlockProto],
 
   private def isAtlasFilter(filter: Filter): Boolean = {
     filter match {
-        case EqualTo(AtlasSource.GEOHASH_STR, _) => true
-        case IsNotNull(AtlasSource.GEOHASH_STR) => true
-        // TODO - include temporal filters (>, >=, ... etc)
-        //case EqualTo(AtlasSource.TIMESTAMP_STR, _) => true
-        //case IsNotNull(AtlasSource.TIMESTAMP_STR) => true
-        case _ => false
+      case EqualTo(AtlasSource.GEOHASH_FIELD, _) => true
+      case IsNotNull(AtlasSource.GEOHASH_FIELD) => true
+      // TODO - include temporal filters (>, >=, ... etc)
+      //case EqualTo(AtlasSource.TIMESTAMP_FIELD, _) => true
+      //case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => true
+      case _ => false
     }
   }
 }

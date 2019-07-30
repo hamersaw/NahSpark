@@ -21,8 +21,8 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
 object AtlasSource {
-  final val GEOHASH_STR = "atlasGeohash"
-  final val TIMESTAMP_STR = "atlasTimestamp"
+  final val GEOHASH_FIELD = "atlasGeohash"
+  final val TIMESTAMP_FIELD = "atlasTimestamp"
 }
 
 class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
@@ -105,61 +105,67 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
       : DataSourceReader = {
     // discover fileStatus for paths
     var storagePolicyId: Option[Int] = None
-    var files = new ListBuffer[FileStatus]()
-    var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
+    var fileMap = Map[String, ListBuffer[FileStatus]]()
 
     for (url <- options.paths) {
       // parse url path
       val (ipAddress, port, path) = Parser.parseHdfsUrl(url)
 
-      // send GetFileInfo request
-      val glRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
-        "org.apache.hadoop.hdfs.protocol.ClientProtocol")
-      val glRequest = ClientNamenodeProtocolProtos
-        .GetListingRequestProto.newBuilder()
-          .setSrc(path)
-          .setStartAfter(ByteString.EMPTY)
-          .setNeedLocation(true).build
+      val id = ipAddress + ":" + port
+      var remainingEntries = -1
+      var startAfterEntry = ByteString.EMPTY
 
-      val glIn = glRpcClient.send("getListing", glRequest)
-      val glResponse = ClientNamenodeProtocolProtos
-        .GetListingResponseProto.parseDelimitedFrom(glIn)
-      glIn.close
-      glRpcClient.close
+      while (remainingEntries != 0) {
+        // send GetFileInfo request
+        val glRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
+          "org.apache.hadoop.hdfs.protocol.ClientProtocol")
+        val glRequest = ClientNamenodeProtocolProtos
+          .GetListingRequestProto.newBuilder()
+            .setSrc(path)
+            .setStartAfter(startAfterEntry)
+            .setNeedLocation(false).build
 
-      // process directory listing
-      val dlProto = glResponse.getDirList
-      for (hfsProto <- dlProto.getPartialListingList) {
-        // set storagePolicyId
-        if (storagePolicyId == None) {
-          storagePolicyId = Some(hfsProto.getStoragePolicy)
-        } // TODO - check if storage policy is the same
- 
-        // process block locations
-        val lbProto = hfsProto.getLocations
-        for (lbProto <- lbProto.getBlocksList) {
-          // parse block id
-          val blockId = lbProto.getB.getBlockId
-          blocks += (blockId -> lbProto)
+        val glIn = glRpcClient.send("getListing", glRequest)
+        val glResponse = ClientNamenodeProtocolProtos
+          .GetListingResponseProto.parseDelimitedFrom(glIn)
+        glIn.close
+        glRpcClient.close
+
+        // process directory listing
+        val dlProto = glResponse.getDirList
+        for (hfsProto <- dlProto.getPartialListingList) {
+          // set storagePolicyId
+          if (storagePolicyId == None) {
+            storagePolicyId = Some(hfsProto.getStoragePolicy)
+          } // TODO - check if storage policy is the same
+   
+          startAfterEntry = hfsProto.getPath
+          val filePath = new String(hfsProto.getPath.toByteArray)
+
+          // initialize FileStatus
+          hfsProto.getFileType match {
+            case HdfsProtos.HdfsFileStatusProto.FileType.IS_FILE => {
+              // initialize file
+              val file = new FileStatus(hfsProto.getLength, false, 
+                hfsProto.getBlockReplication, 
+                hfsProto.getBlocksize, 
+                hfsProto.getModificationTime, new Path(filePath))
+
+              // add file to fileMap
+              fileMap.get(id) match {
+                case Some(files) => files += file
+                case None => {
+                  val files = new ListBuffer[FileStatus]()
+                  files += file
+                  fileMap += (id -> files)
+                }
+              }
+            }
+            case _ => {}
+          }
         }
 
-        // initialize FileStatus
-        hfsProto.getFileType match {
-          case HdfsProtos.HdfsFileStatusProto.FileType.IS_FILE => {
-            files += new FileStatus(hfsProto.getLength, false, 
-              hfsProto.getBlockReplication, 
-              hfsProto.getBlocksize, 
-              hfsProto.getModificationTime, new Path(path))
-          };
-          case _ => {
-          };
-        }
-      }
-
-      // TODO - analyze remaining entries
-      if (dlProto.getRemainingEntries != 0) {
-        println("TODO - process " + dlProto.getRemainingEntries
-          + " remaining entries from path '" + url + "'")
+        remainingEntries = dlProto.getRemainingEntries
       }
     }
 
@@ -178,7 +184,7 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
     gspRpcClient.close
 
     storagePolicy = bspProto.getName()*/
-    val storagePolicy = "CsvPoint(a=0,b=1,c=2)"
+    val storagePolicy = "CsvPoint(timestampIndex:3,latitudeIndex:0,longitudeIndex:1)"
 
     // initialize file format and options
     val endIndex = storagePolicy.indexOf("(")
@@ -192,10 +198,15 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
     }
 
     // infer schema
-    val spark = SparkSession.active
-    val schema = fileFormat.inferSchema(spark, parameters, files).orNull
+    val files = new ListBuffer[FileStatus]()
+    for ((_, f) <- fileMap) {
+      files ++= f
+    }
+
+    val inferredSchema = fileFormat.inferSchema(SparkSession.active,
+      parameters, files).orNull
 
     // return new AtlasSourceReader
-    new AtlasSourceReader(blocks, schema)
+    new AtlasSourceReader(fileMap, inferredSchema)
   }
 }
