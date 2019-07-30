@@ -11,8 +11,6 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
 import org.apache.spark.sql.types.{LongType, StringType, StructType};
 
-import com.bushpath.atlas.spark.sql.util.Parser
-
 import java.util.{ArrayList, HashSet, List};
 
 import scala.collection.JavaConversions._
