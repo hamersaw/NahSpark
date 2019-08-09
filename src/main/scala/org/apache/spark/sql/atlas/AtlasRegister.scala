@@ -25,6 +25,7 @@ object AtlasRegister {
     Within,
     // BuildExpressions
     BuildPoint,
+    BuildPolygon,
     // DoubleExpressions
     Area,
     Distance,

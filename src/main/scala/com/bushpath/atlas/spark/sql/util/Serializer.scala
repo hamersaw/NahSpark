@@ -42,13 +42,15 @@ object Serializer {
       };
       case this.polygon => {
         // deserialize polygon
+        in.read().asInstanceOf[Byte] // read LineString ID
         val coordinateSequence = deserializeCoordinateSequence(in)
         val exteriorRing = new LinearRing(coordinateSequence,
           GeometryUtil.factory)
 
         val numInteriorRing = in.readInt
         val interiorRingArray = new Array[LinearRing](numInteriorRing)
-        for (i <- 0 to numInteriorRing) {
+        for (i <- 0 to (numInteriorRing - 1)) {
+          in.read().asInstanceOf[Byte] // read LineString ID
           val coordinateSequence = deserializeCoordinateSequence(in)
           val interiorRing = new LinearRing(coordinateSequence,
             GeometryUtil.factory)
@@ -108,7 +110,7 @@ object Serializer {
         // serialize line string
         out.write(this.lineString)
         out.writeInt(lineString.getNumPoints)
-        for (i <- 0 to lineString.getNumPoints) {
+        for (i <- 0 to (lineString.getNumPoints - 1)) {
           val point = lineString.getPointN(i)
           out.writeDouble(point.getX)
           out.writeDouble(point.getY)
@@ -126,7 +128,7 @@ object Serializer {
         out.write(this.polygon)
         serialize(polygon.getExteriorRing, out)
         out.writeInt(polygon.getNumInteriorRing)
-        for (i <- 0 to polygon.getNumInteriorRing) {
+        for (i <- 0 to (polygon.getNumInteriorRing - 1)) {
           serialize(polygon.getInteriorRingN(i), out)
         }
       };
