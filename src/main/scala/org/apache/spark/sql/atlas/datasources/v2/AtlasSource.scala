@@ -63,8 +63,10 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
         for (hfsProto <- dlProto.getPartialListingList) {
           // set storagePolicyId
           storagePolicyId match {
-            case Some(id) if id != hfsProto.getStoragePolicy => {
-              println("TODO - storagePolicy differs on input files")
+            case Some(id) => {
+              if (id != hfsProto.getStoragePolicy) {
+                println("TODO - storagePolicy differs on input files")
+              }
             }
             case None => {
               storagePolicyId = Some(hfsProto.getStoragePolicy)
