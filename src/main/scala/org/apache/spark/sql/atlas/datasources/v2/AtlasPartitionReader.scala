@@ -5,10 +5,10 @@ import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferPr
 
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos
 
-import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.csv.CSVOptions
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader
-import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.StructType
 
 import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
 import java.net.Socket
@@ -30,6 +30,7 @@ class AtlasPartitionReader(dataSchema: StructType,
     breakable { for (location <- locations) {
       val locationFields = location.split(":")
       val (ipAddress, port) = (locationFields(0), locationFields(1).toInt)
+      println("reading partition block " + blockId + " with length " + blockLength + " from " + ipAddress + ":" + port)
 
       val socket = new Socket(ipAddress, port)
       val dataOut = new DataOutputStream(socket.getOutputStream)

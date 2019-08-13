@@ -5,13 +5,13 @@ import com.bushpath.anamnesis.ipc.rpc.RpcClient
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 import org.apache.hadoop.fs.FileStatus
 
-import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.{EqualTo, IsNotNull}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
-import org.apache.spark.sql.types.{LongType, StringType, StructType};
+import org.apache.spark.sql.types.{LongType, StringType, StructType}
 
-import java.util.{ArrayList, HashSet, List};
+import java.util.{ArrayList, HashSet, List}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
@@ -33,6 +33,7 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
+    println("AtlasSourceReader.planInputPartitions")
     // compile atlas filter query
     var atlasQueryExpressions = new ListBuffer[String]()
     for (filter <- filters) {

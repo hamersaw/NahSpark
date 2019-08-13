@@ -1,5 +1,7 @@
 package org.apache.spark.sql.atlas.datasources.v2
 
+import com.bushpath.anamnesis.checksum.ChecksumFactory
+import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
 import com.bushpath.anamnesis.ipc.rpc.RpcClient
 
 import com.google.protobuf.ByteString
@@ -13,11 +15,17 @@ import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
 import org.apache.spark.sql.sources.DataSourceRegister
 import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, ReadSupport}
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader
+import org.apache.spark.sql.types.{StringType, StructType}
 
 import com.bushpath.atlas.spark.sql.util.Parser
 
+import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
+import java.net.Socket
+import java.util.Scanner
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
+import scala.util.control.Breaks._
 
 object AtlasSource {
   final val GEOHASH_FIELD = "atlasGeohash"
@@ -29,6 +37,8 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
 
   override def createReader(options: DataSourceOptions)
       : DataSourceReader = {
+    println("AtlasSource.createReader")
+
     // discover fileStatus for paths
     var storagePolicyId: Option[Int] = None
     var storagePolicy = ""
@@ -126,23 +136,130 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
     val endIndex = storagePolicy.indexOf("(")
     val fileFormatString = storagePolicy.substring(0, endIndex)
 
-    val (fileFormat, parameters) = fileFormatString match {
-      case "CsvPoint" => (new CSVFileFormat(),
-        Map("inferSchema" -> "true")); 
-      case "Wkt" => (new CSVFileFormat(),
-        Map("inferSchema" -> "true", "delimiter" -> "\t"));
-    }
+    // compile dataSchema
+    val dataSchema: StructType =
+        options.get("inferSchema").orElse("false") match {
+      case "true" => {
+        // compile file list
+        val files = new ListBuffer[FileStatus]()
+        for ((_, f) <- fileMap) {
+          files ++= f
+        }
 
-    // infer schema
-    val files = new ListBuffer[FileStatus]()
-    for ((_, f) <- fileMap) {
-      files ++= f
-    }
+        // inferSchema using Spark FileFormat
+        fileFormatString match {
+          case "CsvPoint" => {
+            new CSVFileFormat().inferSchema(SparkSession.active,
+              Map("inferSchema" -> "true"), files).orNull
+          }
+          case "Wkt" => {
+            new CSVFileFormat().inferSchema(SparkSession.active,
+              Map("inferSchema" -> "true", "delimiter" -> "\t"), files).orNull
+          }
+        }
+      }
+      case _ => {
+        // read first block
+        val (id, files) = fileMap.head
+        val file = files.head
 
-    val inferredSchema = fileFormat.inferSchema(SparkSession.active,
-      parameters, files).orNull
+        // parse ipAddress, port
+        val idFields = id.split(":")
+        val (ipAddress, port) = (idFields(0), idFields(1).toInt)
+
+        // send GetFileInfo request
+        val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
+          "org.apache.hadoop.hdfs.protocol.ClientProtocol")
+        val gblRequest = ClientNamenodeProtocolProtos
+          .GetBlockLocationsRequestProto.newBuilder()
+            .setSrc(file.getPath.toString)
+            .setOffset(0)
+            .setLength(file.getLen)
+            .build
+
+        val gblIn = gblRpcClient.send("getBlockLocations", gblRequest)
+        val gblResponse = ClientNamenodeProtocolProtos
+          .GetBlockLocationsResponseProto.parseDelimitedFrom(gblIn)
+        gblIn.close
+        gblRpcClient.close
+
+        // process block locations
+        val lbsProto = gblResponse.getLocations
+        val lbProto = lbsProto.getBlocks(0)
+        
+        val blockId = lbProto.getB.getBlockId
+        val blockLength = lbProto.getB.getNumBytes
+
+        // parse locations
+        val blockData = new Array[Byte](blockLength.toInt)
+        breakable { for (diProto <- lbProto.getLocsList) {
+          val didProto = diProto.getId
+
+          val socket = new Socket(didProto.getIpAddr, didProto.getXferPort)
+          val dataOut = new DataOutputStream(socket.getOutputStream)
+          val dataIn = new DataInputStream(socket.getInputStream)
+
+          // send read block op and recv response
+          DataTransferProtocol.sendReadOp(dataOut, "default-pool",
+            blockId, 0, "AtlasPartitionReader", 0, blockLength)
+          val blockOpResponse = DataTransferProtocol
+            .recvBlockOpResponse(dataIn)
+
+          // recv block data
+          val blockIn = new BlockInputStream(dataIn, dataOut,
+            ChecksumFactory.buildDefaultChecksum)
+
+          var offset = 0
+          var bytesRead = 0
+          while (offset < blockData.length) {
+            bytesRead = blockIn.read(blockData,
+              offset, blockData.length - offset)
+            offset += bytesRead
+          }
+
+          blockIn.close
+          dataIn.close
+          dataOut.close
+          socket.close
+
+          //  TODO - check for success
+          break
+        } }
+
+        // parse field count from block
+        var delimiterCount = 0
+        val inputStream = new ByteArrayInputStream(blockData)
+        val bufferedInputStream = new BufferedInputStream(inputStream)
+        val scanner = new Scanner(bufferedInputStream, "UTF-8")
+
+        breakable { while (scanner.hasNextLine) {
+          val line = scanner.nextLine
+          val count = line.count(_ == ',')
+
+          if (delimiterCount == 0) {
+            delimiterCount = count
+          } else if (delimiterCount == count) {
+            break
+          } else {
+            // TODO - throw error
+          }
+        }}
+
+        scanner.close()
+        bufferedInputStream.close()
+        inputStream.close()
+
+        // compile StructType
+        var dataSchema = new StructType()
+        for (i <- 0 to delimiterCount) {
+          dataSchema = dataSchema.add("_c" + i, StringType, true)
+        }
+
+        dataSchema
+      }
+    }
 
     // return new AtlasSourceReader
-    new AtlasSourceReader(fileMap, inferredSchema)
+    new AtlasSourceReader(fileMap, dataSchema)
   }
 }
