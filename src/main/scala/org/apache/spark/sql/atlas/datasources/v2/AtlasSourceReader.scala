@@ -116,6 +116,8 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
+    var primaryLocations: Map[String, Int] = Map()
+
     for ((blockId, lbProto) <- blocks) {
       var locations = new ListBuffer[String]()
       breakable { while (true) {
@@ -126,7 +128,11 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
         for (host <- hosts.keys) {
           val set = hosts(host)
           if (set.contains(blockId)) {
-            if (blockHostOption == None || set.size < blockHostLength) {
+            if (blockHostOption == None 
+              || set.size < blockHostLength
+              || (set.size == blockHostLength &&
+                primaryLocations.get(blockHostOption.orNull).getOrElse(0) 
+                  > primaryLocations.get(host).getOrElse(0))) {
               blockHostOption = Some(host)
               blockHostLength = set.size
             }
@@ -138,12 +144,18 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
           case Some(blockHost) => {
             locations += blockHost
             hosts.get(blockHost).orNull.remove(blockId)
+
+            if (locations.length == 1) {
+              val x = primaryLocations.get(blockHost).getOrElse(0)
+              primaryLocations += blockHost -> (x + 1)
+            }
           }
           // if host not found -> no hosts left -> break
           case None => break
         }
       } }
 
+      println("partition " + blockId + " " + locations.toList)
 
       // initialize block partition
       partitions += new AtlasPartition(dataSchema, requiredSchema,
