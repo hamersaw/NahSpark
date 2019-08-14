@@ -14,8 +14,6 @@ class AtlasPartition(dataSchema: StructType, requiredSchema: StructType,
   override def preferredLocations: Array[String] = locations
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
-    println("AtlasPartition.createPartitionReader for block "
-      + blockId + " with length " + blockLength)
     new AtlasPartitionReader(dataSchema, requiredSchema,
       blockId, blockLength, locations)
   }

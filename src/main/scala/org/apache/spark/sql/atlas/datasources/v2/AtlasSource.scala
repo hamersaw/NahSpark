@@ -37,8 +37,6 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
 
   override def createReader(options: DataSourceOptions)
       : DataSourceReader = {
-    println("AtlasSource.createReader")
-
     // discover fileStatus for paths
     var storagePolicyId: Option[Int] = None
     var storagePolicy = ""
@@ -200,24 +198,30 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
           val dataIn = new DataInputStream(socket.getInputStream)
 
           // send read block op and recv response
+          //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
+          //  blockId, 0, "AtlasPartitionReader", 0, blockLength)
           DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-            blockId, 0, "AtlasPartitionReader", 0, blockLength)
+            blockId, 0, "direct-client", 0, blockLength)
           val blockOpResponse = DataTransferProtocol
             .recvBlockOpResponse(dataIn)
 
           // recv block data
-          val blockIn = new BlockInputStream(dataIn, dataOut,
-            ChecksumFactory.buildDefaultChecksum)
+          /*val blockIn = new BlockInputStream(dataIn, dataOut,
+            ChecksumFactory.buildDefaultChecksum)*/
 
           var offset = 0
           var bytesRead = 0
           while (offset < blockData.length) {
-            bytesRead = blockIn.read(blockData,
+            //bytesRead = blockIn.read(blockData,
+            //  offset, blockData.length - offset)
+            bytesRead = dataIn.read(blockData,
               offset, blockData.length - offset)
             offset += bytesRead
           }
 
-          blockIn.close
+          dataOut.writeByte(0);
+
+          //blockIn.close
           dataIn.close
           dataOut.close
           socket.close

@@ -16,8 +16,8 @@ object AtlasPredicatePushdownOptimizationRule
 
       //println("TODO - pushdown predicate:" + condition
       //  + " through child:" + child)
-      println("PUSHDOWN: " + pushDown)
-      println("STAYUP: " + stayUp)
+      //println("PUSHDOWN: " + pushDown)
+      //println("STAYUP: " + stayUp)
 
       if (pushDown.nonEmpty) {
         //val newChild = insertFilter(pushDown.reduceLeft(And))

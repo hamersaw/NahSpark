@@ -28,9 +28,9 @@ class AtlasPartitionReader(dataSchema: StructType,
     // read blocks from preferred locations first
     // TODO - find which node we're on
     breakable { for (location <- locations) {
+      //val blockStart = System.currentTimeMillis
       val locationFields = location.split(":")
       val (ipAddress, port) = (locationFields(0), locationFields(1).toInt)
-      println("reading partition block " + blockId + " with length " + blockLength + " from " + ipAddress + ":" + port)
 
       val socket = new Socket(ipAddress, port)
       val dataOut = new DataOutputStream(socket.getOutputStream)
@@ -38,26 +38,35 @@ class AtlasPartitionReader(dataSchema: StructType,
 
       // send read block op and recv response
       DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-        blockId, 0, "AtlasPartitionReader", 0, blockLength)
+        blockId, 0, "direct-client", 0, blockLength)
+      //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
+        //blockId, 0, "AtlasPartitionReader", 0, blockLength)
       val blockOpResponse = DataTransferProtocol
         .recvBlockOpResponse(dataIn)
 
       // recv block data
-      val blockIn = new BlockInputStream(dataIn, dataOut,
-        ChecksumFactory.buildDefaultChecksum)
+      //val blockIn = new BlockInputStream(dataIn, dataOut,
+      //  ChecksumFactory.buildDefaultChecksum)
 
-      var offset = 0
-      var bytesRead = 0
+      var offset = 0;
+      var bytesRead = 0;
       while (offset < blockData.length) {
-        bytesRead = blockIn.read(blockData,
-          offset, blockData.length - offset)
+        bytesRead = dataIn.read(blockData, offset,
+          blockData.length - offset)
+        //bytesRead = blockIn.read(blockData, offset,
+        //  blockData.length - offset)
         offset += bytesRead
       }
 
-      blockIn.close
+      dataOut.writeByte(0);
+
+      //blockIn.close
       dataIn.close
       dataOut.close
       socket.close
+
+      //val blockDuration = System.currentTimeMillis - blockStart
+      //println("AtlasPartitionReader - block - " + blockDuration)
 
       break // TODO - check for success
     } }

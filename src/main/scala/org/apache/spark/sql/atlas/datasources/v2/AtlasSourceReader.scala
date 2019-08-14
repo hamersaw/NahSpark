@@ -6,7 +6,7 @@ import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, Hdfs
 import org.apache.hadoop.fs.FileStatus
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.{EqualTo, IsNotNull}
+import org.apache.spark.sql.sources.{EqualTo, GreaterThan, GreaterThanOrEqual, IsNotNull, LessThan, LessThanOrEqual}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
 import org.apache.spark.sql.types.{LongType, StringType, StructType}
@@ -33,14 +33,22 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
-    println("AtlasSourceReader.planInputPartitions")
     // compile atlas filter query
     var atlasQueryExpressions = new ListBuffer[String]()
     for (filter <- filters) {
       filter match {
         case EqualTo(AtlasSource.GEOHASH_FIELD, const) =>
           atlasQueryExpressions += ("g=" + const)
+        case GreaterThan(AtlasSource.TIMESTAMP_FIELD, const) =>
+          atlasQueryExpressions += ("t>" + const)
+        case GreaterThanOrEqual(AtlasSource.TIMESTAMP_FIELD, const) =>
+          atlasQueryExpressions += ("t>=" + const)
         case IsNotNull(AtlasSource.GEOHASH_FIELD) => {}
+        case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => {}
+        case LessThan(AtlasSource.TIMESTAMP_FIELD, const) =>
+          atlasQueryExpressions += ("t<" + const)
+        case LessThanOrEqual(AtlasSource.TIMESTAMP_FIELD, const) =>
+          atlasQueryExpressions += ("t<=" + const)
         case _ => println("TODO - support atlas filter:" + filter)
       }
     }
@@ -136,6 +144,7 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
         }
       } }
 
+
       // initialize block partition
       partitions += new AtlasPartition(dataSchema, requiredSchema,
         blockId, lbProto.getB.getNumBytes, locations.toArray)
@@ -163,10 +172,12 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
   private def isAtlasFilter(filter: Filter): Boolean = {
     filter match {
       case EqualTo(AtlasSource.GEOHASH_FIELD, _) => true
+      case GreaterThan(AtlasSource.TIMESTAMP_FIELD, _) => true
+      case GreaterThanOrEqual(AtlasSource.TIMESTAMP_FIELD, _) => true
       case IsNotNull(AtlasSource.GEOHASH_FIELD) => true
-      // TODO - include temporal filters (>, >=, ... etc)
-      //case EqualTo(AtlasSource.TIMESTAMP_FIELD, _) => true
-      //case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => true
+      case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => true
+      case LessThan(AtlasSource.TIMESTAMP_FIELD, _) => true
+      case LessThanOrEqual(AtlasSource.TIMESTAMP_FIELD, _) => true
       case _ => false
     }
   }
