@@ -257,7 +257,7 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
         }
       } }
 
-      println("partition " + blockId + " " + locations.toList)
+      //println("partition " + blockId + " " + locations.toList)
 
       // initialize block partition
       partitions += new AtlasPartition(dataSchema, requiredSchema,
