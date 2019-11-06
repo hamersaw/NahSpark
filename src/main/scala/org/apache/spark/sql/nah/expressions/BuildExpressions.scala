@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.expressions
+package org.apache.spark.sql.nah.expressions
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
@@ -8,12 +8,12 @@ import org.apache.spark.unsafe.types.UTF8String
 import org.locationtech.jts.geom.{GeometryFactory, LinearRing, LineString, Point, Polygon}
 import org.locationtech.jts.geom.impl.CoordinateArraySequence
 
-import com.bushpath.atlas.spark.sql.util.{Converter, GeometryUtil, Serializer}
-import org.apache.spark.sql.atlas.AtlasGeometryUDT
+import com.bushpath.nah.spark.sql.util.{Converter, GeometryUtil, Serializer}
+import org.apache.spark.sql.nah.NahGeometryUDT
 
 abstract class BuildExpression(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback with Serializable {
-  override def dataType: DataType = new AtlasGeometryUDT()
+  override def dataType: DataType = new NahGeometryUDT()
 
   override def nullable: Boolean = false
 
@@ -22,7 +22,7 @@ abstract class BuildExpression(inputExpressions: Seq[Expression])
 
 /*case class BuildGeometryFromWkt(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback {
-  override def dataType: DataType = new AtlasGeometryUDT()
+  override def dataType: DataType = new NahGeometryUDT()
 
   override def eval(input: InternalRow): Any = {
     null // TODO

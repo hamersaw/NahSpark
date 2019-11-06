@@ -1,14 +1,14 @@
-package org.apache.spark.sql.atlas
+package org.apache.spark.sql.nah
 
 import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
 import org.apache.spark.sql.types.{ArrayType, ByteType, DataType, UserDefinedType}
 import org.locationtech.jts.geom.{Geometry, LineString, Point, Polygon}
 
-import com.bushpath.atlas.spark.sql.util.Serializer
+import com.bushpath.nah.spark.sql.util.Serializer
 
 import java.io.{BufferedInputStream, BufferedOutputStream, ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
 
-private[sql] class AtlasGeometryUDT extends UserDefinedType[Geometry] {
+private[sql] class NahGeometryUDT extends UserDefinedType[Geometry] {
   override def deserialize(datum: Any): Geometry = {
     datum match {
       case arrayData: ArrayData => {

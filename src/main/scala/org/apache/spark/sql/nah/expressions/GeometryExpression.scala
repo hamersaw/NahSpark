@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.expressions
+package org.apache.spark.sql.nah.expressions
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
@@ -6,12 +6,12 @@ import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.util.ArrayData
 import org.apache.spark.sql.types.DataType
 
-import com.bushpath.atlas.spark.sql.util.Converter;
-import org.apache.spark.sql.atlas.AtlasGeometryUDT
+import com.bushpath.nah.spark.sql.util.Converter;
+import org.apache.spark.sql.nah.NahGeometryUDT
 
 abstract class GeometryExpression(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback with Serializable {
-  override def dataType: DataType = new AtlasGeometryUDT()
+  override def dataType: DataType = new NahGeometryUDT()
 
   override def nullable: Boolean = false
 

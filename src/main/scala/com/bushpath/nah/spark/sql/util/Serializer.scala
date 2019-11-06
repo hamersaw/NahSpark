@@ -1,4 +1,4 @@
-package com.bushpath.atlas.spark.sql.util
+package com.bushpath.nah.spark.sql.util
 
 import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
 import org.locationtech.jts.geom.{Coordinate, CoordinateSequence, Geometry, GeometryFactory, LinearRing, LineString, Point, Polygon}

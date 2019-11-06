@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.datasources.v2
+package org.apache.spark.sql.nah.datasources.v2
 
 import com.bushpath.anamnesis.checksum.ChecksumFactory
 import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
@@ -17,7 +17,7 @@ import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, ReadSup
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader
 import org.apache.spark.sql.types.{StringType, StructType}
 
-import com.bushpath.atlas.spark.sql.util.Parser
+import com.bushpath.nah.spark.sql.util.Parser
 
 import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
 import java.net.Socket
@@ -27,13 +27,13 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
-object AtlasSource {
-  final val GEOHASH_FIELD = "atlasGeohash"
-  final val TIMESTAMP_FIELD = "atlasTimestamp"
+object NahSource {
+  final val GEOHASH_FIELD = "nahGeohash"
+  final val TIMESTAMP_FIELD = "nahTimestamp"
 }
 
-class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
-  override def shortName() = "atlas"
+class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
+  override def shortName() = "nah"
 
   override def createReader(options: DataSourceOptions)
       : DataSourceReader = {
@@ -199,7 +199,7 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
 
           // send read block op and recv response
           //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-          //  blockId, 0, "AtlasPartitionReader", 0, blockLength)
+          //  blockId, 0, "NahPartitionReader", 0, blockLength)
           DataTransferProtocol.sendReadOp(dataOut, "default-pool",
             blockId, 0, "direct-client", 0, blockLength)
           val blockOpResponse = DataTransferProtocol
@@ -263,7 +263,7 @@ class AtlasSource extends DataSourceV2 with ReadSupport with DataSourceRegister 
       }
     }
 
-    // return new AtlasSourceReader
-    new AtlasSourceReader(fileMap, dataSchema)
+    // return new NahSourceReader
+    new NahSourceReader(fileMap, dataSchema)
   }
 }

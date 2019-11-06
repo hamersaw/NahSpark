@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.datasources.v2
+package org.apache.spark.sql.nah.datasources.v2
 
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos
 
@@ -8,13 +8,13 @@ import org.apache.spark.sql.types.StructType
 
 import scala.collection.JavaConversions._
 
-class AtlasPartition(dataSchema: StructType, requiredSchema: StructType,
+class NahPartition(dataSchema: StructType, requiredSchema: StructType,
     blockId: Long, blockLength: Long, locations: Array[String])
     extends InputPartition[InternalRow] {
   override def preferredLocations: Array[String] = locations
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
-    new AtlasPartitionReader(dataSchema, requiredSchema,
+    new NahPartitionReader(dataSchema, requiredSchema,
       blockId, blockLength, locations)
   }
 }

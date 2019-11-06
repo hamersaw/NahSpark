@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.datasources.v2
+package org.apache.spark.sql.nah.datasources.v2
 
 import com.bushpath.anamnesis.ipc.rpc.RpcClient
 
@@ -19,13 +19,13 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
-class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
+class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     dataSchema: StructType) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     var schema = StructType(dataSchema)
-    schema = schema.add(AtlasSource.GEOHASH_FIELD, StringType, true)
-    schema = schema.add(AtlasSource.TIMESTAMP_FIELD, LongType, true)
+    schema = schema.add(NahSource.GEOHASH_FIELD, StringType, true)
+    schema = schema.add(NahSource.TIMESTAMP_FIELD, LongType, true)
     schema
   }
 
@@ -35,27 +35,27 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
-    // compile atlas filter query
-    var atlasQueryExpressions = new ListBuffer[String]()
+    // compile nah filter query
+    var nahQueryExpressions = new ListBuffer[String]()
     for (filter <- filters) {
       filter match {
-        case EqualTo(AtlasSource.GEOHASH_FIELD, const) =>
-          atlasQueryExpressions += ("g=" + const)
-        case GreaterThan(AtlasSource.TIMESTAMP_FIELD, const) =>
-          atlasQueryExpressions += ("t>" + const)
-        case GreaterThanOrEqual(AtlasSource.TIMESTAMP_FIELD, const) =>
-          atlasQueryExpressions += ("t>=" + const)
-        case IsNotNull(AtlasSource.GEOHASH_FIELD) => {}
-        case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => {}
-        case LessThan(AtlasSource.TIMESTAMP_FIELD, const) =>
-          atlasQueryExpressions += ("t<" + const)
-        case LessThanOrEqual(AtlasSource.TIMESTAMP_FIELD, const) =>
-          atlasQueryExpressions += ("t<=" + const)
-        case _ => println("TODO - support atlas filter:" + filter)
+        case EqualTo(NahSource.GEOHASH_FIELD, const) =>
+          nahQueryExpressions += ("g=" + const)
+        case GreaterThan(NahSource.TIMESTAMP_FIELD, const) =>
+          nahQueryExpressions += ("t>" + const)
+        case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, const) =>
+          nahQueryExpressions += ("t>=" + const)
+        case IsNotNull(NahSource.GEOHASH_FIELD) => {}
+        case IsNotNull(NahSource.TIMESTAMP_FIELD) => {}
+        case LessThan(NahSource.TIMESTAMP_FIELD, const) =>
+          nahQueryExpressions += ("t<" + const)
+        case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, const) =>
+          nahQueryExpressions += ("t<=" + const)
+        case _ => println("TODO - support nah filter:" + filter)
       }
     }
 
-    val atlasQuery = atlasQueryExpressions.mkString("&")
+    val nahQuery = nahQueryExpressions.mkString("&")
 
     // TODO - submit requests within threads
     
@@ -112,8 +112,8 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
       for (file <- files) {
         var path = file.getPath.toString
-        if (!atlasQuery.isEmpty) {
-          path += ("+" + atlasQuery)
+        if (!nahQuery.isEmpty) {
+          path += ("+" + nahQuery)
         }
 
         inputQueue.put((ipAddress, port, path, file.getLen))
@@ -167,10 +167,10 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
       val (ipAddress, port) = (idFields(0), idFields(1).toInt)
 
       for (file <- files) {
-        // compile file path with atlasQuery
+        // compile file path with nahQuery
         var path = file.getPath.toString
-        if (!atlasQuery.isEmpty) {
-          path += ("+" + atlasQuery)
+        if (!nahQuery.isEmpty) {
+          path += ("+" + nahQuery)
         }
 
         // send GetFileInfo request
@@ -260,7 +260,7 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
       //println("partition " + blockId + " " + locations.toList)
 
       // initialize block partition
-      partitions += new AtlasPartition(dataSchema, requiredSchema,
+      partitions += new NahPartition(dataSchema, requiredSchema,
         blockId, lbProto.getB.getNumBytes, locations.toArray)
     } 
 
@@ -272,9 +272,9 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
   }
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    // parse out filters applicable to the atlas file system
-    val (atlasFilters, rest) = filters.partition(isAtlasFilter(_))
-    this.filters = atlasFilters
+    // parse out filters applicable to the nah file system
+    val (nahFilters, rest) = filters.partition(isNahFilter(_))
+    this.filters = nahFilters
 
     rest
   }
@@ -283,15 +283,15 @@ class AtlasSourceReader(fileMap: Map[String, Seq[FileStatus]],
     this.filters
   }
 
-  private def isAtlasFilter(filter: Filter): Boolean = {
+  private def isNahFilter(filter: Filter): Boolean = {
     filter match {
-      case EqualTo(AtlasSource.GEOHASH_FIELD, _) => true
-      case GreaterThan(AtlasSource.TIMESTAMP_FIELD, _) => true
-      case GreaterThanOrEqual(AtlasSource.TIMESTAMP_FIELD, _) => true
-      case IsNotNull(AtlasSource.GEOHASH_FIELD) => true
-      case IsNotNull(AtlasSource.TIMESTAMP_FIELD) => true
-      case LessThan(AtlasSource.TIMESTAMP_FIELD, _) => true
-      case LessThanOrEqual(AtlasSource.TIMESTAMP_FIELD, _) => true
+      case EqualTo(NahSource.GEOHASH_FIELD, _) => true
+      case GreaterThan(NahSource.TIMESTAMP_FIELD, _) => true
+      case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
+      case IsNotNull(NahSource.GEOHASH_FIELD) => true
+      case IsNotNull(NahSource.TIMESTAMP_FIELD) => true
+      case LessThan(NahSource.TIMESTAMP_FIELD, _) => true
+      case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
       case _ => false
     }
   }

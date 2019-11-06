@@ -1,13 +1,13 @@
-package org.apache.spark.sql.atlas
+package org.apache.spark.sql.nah
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry.FunctionBuilder
 import org.apache.spark.sql.types.UDTRegistration
 import org.locationtech.jts.geom.Geometry
 
-import org.apache.spark.sql.atlas.expressions._
+import org.apache.spark.sql.nah.expressions._
 
-object AtlasRegister {
+object NahRegister {
   final val expressions:Seq[FunctionBuilder] = Seq(
     // BooleanExpressions
     Contains,
@@ -45,9 +45,9 @@ object AtlasRegister {
   )
 
   def init(sparkSession: SparkSession) = {
-    // register AtlasGeometryUDT
+    // register NahGeometryUDT
     UDTRegistration.register(classOf[Geometry].getName,
-      classOf[AtlasGeometryUDT].getName)
+      classOf[NahGeometryUDT].getName)
 
     // register expressions
     val functionRegistry = sparkSession.sessionState.functionRegistry
@@ -58,6 +58,6 @@ object AtlasRegister {
 
     // register predicate pushdown optimization
     //sparkSession.experimental.extraOptimizations =
-    //  Seq(AtlasPredicatePushdownOptimizationRule)
+    //  Seq(NahPredicatePushdownOptimizationRule)
   }
 }

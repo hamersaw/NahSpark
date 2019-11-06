@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.datasources.v2
+package org.apache.spark.sql.nah.datasources.v2
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow

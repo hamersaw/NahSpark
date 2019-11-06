@@ -1,13 +1,13 @@
-package org.apache.spark.sql.atlas
+package org.apache.spark.sql.nah
 
-import org.apache.spark.sql.atlas.expressions._
+import org.apache.spark.sql.nah.expressions._
 
 import org.apache.spark.sql.catalyst.expressions.{And, Expression, PredicateHelper}
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan, UnaryNode}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.sources.v2.DataSourceV2
 
-object AtlasPredicatePushdownOptimizationRule
+object NahPredicatePushdownOptimizationRule
     extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case filter @ Filter(condition, unaryNode: UnaryNode) => {

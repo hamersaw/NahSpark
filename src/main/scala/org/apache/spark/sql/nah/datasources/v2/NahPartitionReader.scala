@@ -1,4 +1,4 @@
-package org.apache.spark.sql.atlas.datasources.v2
+package org.apache.spark.sql.nah.datasources.v2
 
 import com.bushpath.anamnesis.checksum.ChecksumFactory
 import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
@@ -17,7 +17,7 @@ import java.util.Scanner
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
-class AtlasPartitionReader(dataSchema: StructType,
+class NahPartitionReader(dataSchema: StructType,
     requiredSchema: StructType, blockId: Long, blockLength: Long,
     locations: Array[String]) extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
@@ -40,7 +40,7 @@ class AtlasPartitionReader(dataSchema: StructType,
       DataTransferProtocol.sendReadOp(dataOut, "default-pool",
         blockId, 0, "direct-client", 0, blockLength)
       //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-        //blockId, 0, "AtlasPartitionReader", 0, blockLength)
+        //blockId, 0, "NahPartitionReader", 0, blockLength)
       val blockOpResponse = DataTransferProtocol
         .recvBlockOpResponse(dataIn)
 
@@ -66,7 +66,7 @@ class AtlasPartitionReader(dataSchema: StructType,
       socket.close
 
       //val blockDuration = System.currentTimeMillis - blockStart
-      //println("AtlasPartitionReader - block - " + blockDuration)
+      //println("NahPartitionReader - block - " + blockDuration)
 
       break // TODO - check for success
     } }

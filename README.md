@@ -1,12 +1,12 @@
-# atlas-spark-sql
+# NahSpark
 ## OVERVIEW
-Spatio-temporal spark implementation with optimizations for reading dataframes from Atlas.
+NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions implemented with optimizations for reading dataframes from NahFS.
 
 ## COMMANDS
 #### SPARK SHELL (SQL)
     // read dataframe from atlas csv file
-    import com.bushpath.atlas.spark.sql.sources.AtlasRelation
-    val df = spark.sqlContext.read.format("atlas").load("hdfs://127.0.0.1:9000/user/hamersaw")
+    import com.bushpath.atlas.spark.sql.sources.NahRelation
+    val df = spark.sqlContext.read.format("nah").load("hdfs://127.0.0.1:9000/user/hamersaw")
     df.printSchema()
     df.show()
 
@@ -21,12 +21,12 @@ Spatio-temporal spark implementation with optimizations for reading dataframes f
     val named_df = lookupMap.foldLeft(df)(
         (acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
 
-    // register AtlasGeometryUDT and User Defined Functions
-    import org.apache.spark.sql.atlas.AtlasRegister
-    AtlasRegister.init(spark)
+    // register NahGeometryUDT and User Defined Functions
+    import org.apache.spark.sql.nah.NahRegister
+    NahRegister.init(spark)
 
-    // parase AtlasGeometryUDT
-    df.createOrReplaceTempView("atlas_test")
+    // parase NahGeometryUDT
+    df.createOrReplaceTempView("nah_test")
     spark.sql("SELECT _c0 FROM global_temp.atlas_test").show()
     var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM atlas_test")
 
@@ -44,5 +44,5 @@ Spatio-temporal spark implementation with optimizations for reading dataframes f
 - http://blog.madhukaraphatak.com/introduction-to-spark-two-part-6/
 
 ## TODO
-- conversion of Atlas Expressions to translatable spatiotemporal filters 
+- conversion of Nah Expressions to translatable spatiotemporal filters 
 - support timestamp queries

@@ -1,4 +1,4 @@
-package com.bushpath.atlas.spark.sql.util
+package com.bushpath.nah.spark.sql.util
 
 import java.util.regex.{Matcher, Pattern}
 
