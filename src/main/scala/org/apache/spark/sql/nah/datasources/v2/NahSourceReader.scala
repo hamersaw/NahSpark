@@ -1,6 +1,6 @@
 package org.apache.spark.sql.nah.datasources.v2
 
-import com.bushpath.anamnesis.ipc.rpc.RpcClient
+import com.bushpath.hdfs_comm.ipc.rpc.RpcClient
 
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 import org.apache.hadoop.fs.FileStatus

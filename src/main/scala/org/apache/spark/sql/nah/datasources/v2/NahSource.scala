@@ -1,8 +1,8 @@
 package org.apache.spark.sql.nah.datasources.v2
 
-import com.bushpath.anamnesis.checksum.ChecksumFactory
-import com.bushpath.anamnesis.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
-import com.bushpath.anamnesis.ipc.rpc.RpcClient
+import com.bushpath.hdfs_comm.checksum.ChecksumFactory
+import com.bushpath.hdfs_comm.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
+import com.bushpath.hdfs_comm.ipc.rpc.RpcClient
 
 import com.google.protobuf.ByteString
 

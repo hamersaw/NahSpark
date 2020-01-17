@@ -4,8 +4,8 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 
 ## COMMANDS
 #### SPARK SHELL (SQL)
-    // read dataframe from atlas csv file
-    import com.bushpath.atlas.spark.sql.sources.NahRelation
+    // read dataframe from Nah csv file
+    import com.bushpath.nah.spark.sql.sources.NahRelation
     val df = spark.sqlContext.read.format("nah").load("hdfs://127.0.0.1:9000/user/hamersaw")
     df.printSchema()
     df.show()
@@ -27,8 +27,8 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 
     // parase NahGeometryUDT
     df.createOrReplaceTempView("nah_test")
-    spark.sql("SELECT _c0 FROM global_temp.atlas_test").show()
-    var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM atlas_test")
+    spark.sql("SELECT _c0 FROM global_temp.nah_test").show()
+    var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM nah_test")
 
     spatialDf.createOrReplaceTempView("spatial_test")
     var distanceDf = spark.sql("SELECT point, Distance(point, BuildPoint(0.0, 10.0)) as distance, _c2, _c3 FROM spatial_test")
