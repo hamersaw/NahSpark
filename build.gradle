@@ -13,7 +13,7 @@ repositories {
 // define dependencies
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'com.google.protobuf:protobuf-java:3.4.0'
+    implementation 'com.google.protobuf:protobuf-java:2.6.1'
     implementation 'org.apache.spark:spark-sql_2.11:2.4.3'
     implementation 'org.locationtech.jts:jts-core:1.16.0'
     implementation 'org.scala-lang:scala-library:2.11.12'

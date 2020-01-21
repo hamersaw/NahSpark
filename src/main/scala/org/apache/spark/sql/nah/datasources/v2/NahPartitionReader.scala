@@ -36,31 +36,26 @@ class NahPartitionReader(dataSchema: StructType,
       val dataOut = new DataOutputStream(socket.getOutputStream)
       val dataIn = new DataInputStream(socket.getInputStream)
 
-      // send read block op and recv response
-      DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-        blockId, 0, "direct-client", 0, blockLength)
-      //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-        //blockId, 0, "NahPartitionReader", 0, blockLength)
-      val blockOpResponse = DataTransferProtocol
-        .recvBlockOpResponse(dataIn)
-
-      // recv block data
-      //val blockIn = new BlockInputStream(dataIn, dataOut,
-      //  ChecksumFactory.buildDefaultChecksum)
+      // retrieve block from host
+      dataOut.writeShort(28); // protocol version
+      dataOut.write(83); // op - ReadBlockDirect
+      dataOut.write(0); // protobuf length
+      dataOut.writeLong(blockId);
+      dataOut.writeLong(0);
+      dataOut.writeLong(blockLength);
 
       var offset = 0;
       var bytesRead = 0;
       while (offset < blockData.length) {
         bytesRead = dataIn.read(blockData, offset,
           blockData.length - offset)
-        //bytesRead = blockIn.read(blockData, offset,
-        //  blockData.length - offset)
         offset += bytesRead
       }
 
+      // send success indicator
       dataOut.writeByte(0);
 
-      //blockIn.close
+      // close streams
       dataIn.close
       dataOut.close
       socket.close

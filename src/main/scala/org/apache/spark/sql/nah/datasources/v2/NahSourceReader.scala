@@ -58,14 +58,12 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     val nahQuery = nahQueryExpressions.mkString("&")
 
     // TODO - submit requests within threads
-    
-
     val threadCount = 4
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
     val outputQueue = new ArrayBlockingQueue[Any](128)
 
     val threads: List[Thread] = new ArrayList()
-    for (i <- 0 to threadCount) {
+    for (i <- 1 to threadCount) {
       val thread = new Thread() {
         override def run() {
           breakable { while (true) {
@@ -74,6 +72,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
             if (filename.isEmpty) {
               break
             }
+
+            //println("processing file '" + filename + ":" + length);
 
             // send GetFileInfo request
             val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
@@ -120,7 +120,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
-    for (i <- 0 to threadCount) {
+    for (i <- 1 to threadCount) {
       inputQueue.put(("", 0, "", 0))
     }
 
@@ -140,6 +140,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           // parse block id
           val blockId = lbProto.getB.getBlockId
           blocks += (blockId -> lbProto)
+          //println("added block '" + blockId + "'")
 
           // parse locations
           for (diProto <- lbProto.getLocsList) {

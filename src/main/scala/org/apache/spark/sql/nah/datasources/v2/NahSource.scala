@@ -78,8 +78,8 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
             }
             case None => {
               storagePolicyId = Some(hfsProto.getStoragePolicy)
-              val gspRpcClient = 
-                new RpcClient(ipAddress, port, "ATLAS-SPARK",
+              val gspRpcClient =
+                new RpcClient(ipAddress, port, "NahSpark",
                 "org.apache.hadoop.hdfs.protocol.ClientProtocol")
               val gspRequest = ClientNamenodeProtocolProtos
                 .GetStoragePolicyRequestProto.newBuilder()
