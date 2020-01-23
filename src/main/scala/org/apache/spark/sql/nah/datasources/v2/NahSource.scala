@@ -130,6 +130,9 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
       }
     }
 
+    // TODO - parse storagePolicy to discover fileFormat 
+    // and spatiotemporal feature names
+
     // initialize file format and options
     val endIndex = storagePolicy.indexOf("(")
     val fileFormatString = storagePolicy.substring(0, endIndex)
@@ -197,32 +200,25 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
           val dataOut = new DataOutputStream(socket.getOutputStream)
           val dataIn = new DataInputStream(socket.getInputStream)
 
-          // TODO - update to use new style - used in NahPartitionReader
-          // send read block op and recv response
-          //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-          //  blockId, 0, "NahPartitionReader", 0, blockLength)
-          DataTransferProtocol.sendReadOp(dataOut, "default-pool",
-            blockId, 0, "direct-client", 0, blockLength)
-          val blockOpResponse = DataTransferProtocol
-            .recvBlockOpResponse(dataIn)
+          dataOut.writeShort(28); // protocol version
+          dataOut.write(83); // op - ReadBlockDirect
+          dataOut.write(0); // protobuf length
+          dataOut.writeLong(blockId);
+          dataOut.writeLong(0);
+          dataOut.writeLong(blockLength);
 
-          // recv block data
-          /*val blockIn = new BlockInputStream(dataIn, dataOut,
-            ChecksumFactory.buildDefaultChecksum)*/
-
-          var offset = 0
-          var bytesRead = 0
+          var offset = 0;
+          var bytesRead = 0;
           while (offset < blockData.length) {
-            //bytesRead = blockIn.read(blockData,
-            //  offset, blockData.length - offset)
-            bytesRead = dataIn.read(blockData,
-              offset, blockData.length - offset)
+            bytesRead = dataIn.read(blockData, offset,
+              blockData.length - offset)
             offset += bytesRead
           }
 
+          // send success indicator
           dataOut.writeByte(0);
 
-          //blockIn.close
+          // close streams
           dataIn.close
           dataOut.close
           socket.close

@@ -14,13 +14,13 @@ object NahFilterInjectionOptimizationRule
     case filter @ Filter(condition, child) => {
       // TODO - retrieve all DataSourceV2Relations with getName == "nah"
       // currently just checking if the first child is correct
-      if (child.isInstanceOf[DataSourceV2Relation]) {
+      /*if (child.isInstanceOf[DataSourceV2Relation]) {
         val relation = child.asInstanceOf[DataSourceV2Relation]
         if (relation.source.isInstanceOf[NahSource]) {
-          val source = relation.source.asInstanceof[NahSource]
+          val source = relation.source.asInstanceOf[NahSource]
             // TODO - retrieve spatial feature names
         }
-      }
+      }*/
 
       // TODO - discover spatial fields from data sources
       println("childClass: " + child.getClass())
