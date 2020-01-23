@@ -56,8 +56,8 @@ object NahRegister {
         expression.getClass.getSimpleName.dropRight(1), expression)
     }
 
-    // register predicate pushdown optimization
-    //sparkSession.experimental.extraOptimizations =
-    //  Seq(NahPredicatePushdownOptimizationRule)
+    // register filter injection optimization
+    sparkSession.experimental.extraOptimizations =
+      Seq(NahFilterInjectionOptimizationRule)
   }
 }

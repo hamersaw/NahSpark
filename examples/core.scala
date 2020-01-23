@@ -12,9 +12,22 @@ val opStart = System.currentTimeMillis
 //df.filter("nahTimestamp > '1'").count
 //df.filter("nahGeohash = '8bcc'").count
 //df.select("_c43").map(x=>x.getString(0).toDouble).map(x=>x-(x%10)).groupBy("value").count().show();
-val opDuration = System.currentTimeMillis - opStart
 
 //df.createOrReplaceTempView("nah_test")
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Distance(BuildPoint(_c0, _c1), BuildPoint(0.0, 10.0)) < 10")
 
-println("df:" + dfDuration + " count:" + opDuration)
+df.createOrReplaceTempView("nah_test")
+var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Within(BuildPoint(_c0, _c1), BuildPolygon(0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0))")
+val count = spatialDf.count()
+println("spatialDf.count() = " + count)
+
+// parse NahGeometryUDT
+//df.createOrReplaceTempView("nah_test")
+//spark.sql("SELECT _c0 FROM global_temp.nah_test").show()
+//var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM nah_test")
+
+//spatialDf.createOrReplaceTempView("spatial_test")
+//var distanceDf = spark.sql("SELECT point, Distance(point, BuildPoint(0.0, 10.0)) as distance, _c2, _c3 FROM spatial_test")
+
+val opDuration = System.currentTimeMillis - opStart
+println("df:" + dfDuration + " operation:" + opDuration)

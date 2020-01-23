@@ -21,18 +21,6 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
     val named_df = lookupMap.foldLeft(df)(
         (acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
 
-    // register NahGeometryUDT and User Defined Functions
-    import org.apache.spark.sql.nah.NahRegister
-    NahRegister.init(spark)
-
-    // parase NahGeometryUDT
-    df.createOrReplaceTempView("nah_test")
-    spark.sql("SELECT _c0 FROM global_temp.nah_test").show()
-    var spatialDf = spark.sql("SELECT BuildPoint(_c0, _c1) AS point, _c2, _c3 FROM nah_test")
-
-    spatialDf.createOrReplaceTempView("spatial_test")
-    var distanceDf = spark.sql("SELECT point, Distance(point, BuildPoint(0.0, 10.0)) as distance, _c2, _c3 FROM spatial_test")
-
 ## REFERENCES
 - https://github.com/locationtech/jts
     - https://locationtech.github.io/jts/javadoc/
@@ -43,6 +31,15 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 - https://datasystemslab.github.io/GeoSpark/tutorial/sql/
 - http://blog.madhukaraphatak.com/introduction-to-spark-two-part-6/
 
+## SPARK FILES FOR DEVELOPMENTAL HELP
+#### LOGICAL PLAN MANIPULATION
+- sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/
+    - basicLogicalOperators.scala : case classes for logical plan nodes
+- sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/
+    - Optimizer.scala : line 948 outlines 'PushDownPredicate' rule
+
 ## TODO
-- conversion of Nah Expressions to translatable spatiotemporal filters 
+- **Nah Expressions to translatable spatiotemporal filters**
+    - necessary for enabling PredicatePushDown on everything
+- spatial queries - kNN, spatial joins, etc
 - support timestamp queries

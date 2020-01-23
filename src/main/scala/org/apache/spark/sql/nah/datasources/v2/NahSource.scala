@@ -197,6 +197,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
           val dataOut = new DataOutputStream(socket.getOutputStream)
           val dataIn = new DataInputStream(socket.getInputStream)
 
+          // TODO - update to use new style - used in NahPartitionReader
           // send read block op and recv response
           //DataTransferProtocol.sendReadOp(dataOut, "default-pool",
           //  blockId, 0, "NahPartitionReader", 0, blockLength)
