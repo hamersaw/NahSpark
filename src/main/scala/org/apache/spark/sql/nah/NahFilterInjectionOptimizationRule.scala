@@ -4,22 +4,24 @@ import com.bushpath.nah.spark.sql.util.Converter
 import org.apache.spark.sql.nah.expressions._
 
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
-import org.apache.spark.sql.catalyst.expressions.{And, AttributeReference, Expression, GreaterThanOrEqual, LessThanOrEqual, Literal, PredicateHelper}
+import org.apache.spark.sql.catalyst.expressions.{And, AttributeReference, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, PredicateHelper}
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan, UnaryNode}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.sources.v2.DataSourceV2
 import org.apache.spark.sql.types.DoubleType
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, Map}
 
 object NahFilterInjectionOptimizationRule
     extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case filter @ Filter(condition, child) => {
+      var updatedBoundaries = Map[String, (Double, Double)]()
+      var existingBoundaries = Map[String, (Double, Double)]()
+      var attributes = Map[String, AttributeReference]()
+
       // iterate over available filters
       val filters = splitConjunctivePredicates(condition)
-      val injectExpressions = ArrayBuffer.empty[Expression]
-
       for (filter <- filters) {
         // check if filter is a BooleanExpression
         if (filter.isInstanceOf[BooleanExpression]) {
@@ -30,32 +32,34 @@ object NahFilterInjectionOptimizationRule
           // collect AttributeReferences from BooleanExpression children
           var a = getAttributeReferences(expressions(0))
           var b = getAttributeReferences(expressions(1))
+          
+          for (attribute <- a) {
+            if (!attributes.contains(attribute.name)) {
+              attributes(attribute.name) = attribute
+            }
+          }
+
+          for (attribute <- b) {
+            if (!attributes.contains(attribute.name)) {
+              attributes(attribute.name) = attribute
+            }
+          }
 
           // process filter
           filter match {
             case _: Within => {
               if (a.size >= 2 && b.size == 0) {
                 // building bounded geometry from coordinates
-                val spatialBounds = getSpatialBounds(expressions(1))
+                val spatialBoundaries = getSpatialBoundaries(expressions(1))
 
-                //println("inject: " + a(0) + ">=" + spatialBounds._1)
-                //println("inject: " + a(0) + "<=" + spatialBounds._2)
-                //println("inject: " + a(1) + ">=" + spatialBounds._3)
-                //println("inject: " + a(1) + "<=" + spatialBounds._4)
-
-                // TODO - use Literal(spatialBounds._1, Double)
-                /*val injectExpression = Seq(
-					new GreaterThanOrEqual(a(0), new Literal(spatialBounds._1, DoubleType)),
-					new LessThanOrEqual(a(0), new Literal(spatialBounds._2, DoubleType)),
-                    new GreaterThanOrEqual(a(1), new Literal(spatialBounds._3, DoubleType)),
-                    new LessThanOrEqual(a(1), new Literal(spatialBounds._4, DoubleType))
-				).reduceLeft(And)*/
-
-				injectExpressions += new GreaterThanOrEqual(a(0), new Literal(spatialBounds._1, DoubleType))
-			    injectExpressions += new LessThanOrEqual(a(0), new Literal(spatialBounds._2, DoubleType))
-                injectExpressions += new GreaterThanOrEqual(a(1), new Literal(spatialBounds._3, DoubleType))
-                injectExpressions += new LessThanOrEqual(a(1), new Literal(spatialBounds._4, DoubleType))
-
+                updateLowerBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._1)
+                updateUpperBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._2)
+                updateLowerBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._3)
+                updateUpperBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._4)
               } else {
                 println("unsupported injection filter: within("
                   + a.size + "," + b.size + ")")
@@ -63,26 +67,101 @@ object NahFilterInjectionOptimizationRule
             }
             case x => println("TODO - handle filter injection for " + x.getClass)
           }
-        } else {
-          println("TODO - handle filter: " + filter.getClass)
-          println(filter)
+        }
+ 
+        // check for existing boundaries
+        filter match {
+          case greaterThan @ GreaterThan(a, b) => {
+            if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateLowerBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            } else if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateUpperBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            }
+          }
+          case greaterThanOrEqual @ GreaterThanOrEqual(a, b) => {
+            if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateLowerBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            } else if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateUpperBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            }
+          }
+          case lessThan @ LessThan(a, b) => {
+            if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateUpperBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            } else if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateLowerBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            }
+          }
+          case lessThanOrEqual @ LessThanOrEqual(a, b) => {
+            if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateUpperBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            } else if (a.isInstanceOf[AttributeReference]
+                && b.isInstanceOf[Literal]) {
+              updateLowerBound(existingBoundaries, 
+                a.asInstanceOf[AttributeReference].name,
+                Converter.toDouble(b.asInstanceOf[Literal].value))
+            }
+          }
+          case _ => {}
         }
       }
 
-      // TODO - return with injected filters
-      // TODO RETURN WITH INJECTED FILTERS
-      //Filter(stayUp.reduceLeft(And), newChild)
-      if (injectExpressions.size != 0) {
-        injectExpressions ++= filters
-        Filter(injectExpressions.reduceLeft(And), child)
+      /*println("UPDATED BOUNDARIES")
+      for ((key, value) <- updatedBoundaries) {
+        println(key + " : " + value)
+      }
+
+      println("EXISTING BOUNDARIES")
+      for ((key, value) <- existingBoundaries) {
+        println(key + " : " + value)
+      }*/
+
+      // compute injected expressions
+      val injectedExpressions = ArrayBuffer.empty[Expression]
+      for ((name, bounds) <- updatedBoundaries) {
+        // check lower bounds
+        if (!existingBoundaries.contains(name)
+            || existingBoundaries(name)._1 > bounds._1) {
+          injectedExpressions += new GreaterThanOrEqual(
+            attributes(name), new Literal(bounds._1, DoubleType))
+        }
+
+        // check upper bounds
+        if (!existingBoundaries.contains(name)
+            || existingBoundaries(name)._2 < bounds._2) {
+          injectedExpressions += new LessThanOrEqual(
+            attributes(name), new Literal(bounds._2, DoubleType))
+        }
+      }
+
+      // return with injected filters
+      if (injectedExpressions.size != 0) {
+        injectedExpressions ++= filters
+        Filter(injectedExpressions.reduceLeft(And), child)
       } else {
         filter
       }
-    }
-    case x => {
-      println("TODO - handle expression : " + x.getClass)
-      println(x)
-      x
     }
   }
 
@@ -107,7 +186,7 @@ object NahFilterInjectionOptimizationRule
     references
   }
 
-  def getSpatialBounds(expression: Expression)
+  def getSpatialBoundaries(expression: Expression)
       : (Double, Double, Double, Double) = {
     var minX = 180.0
     var maxX = -180.0
@@ -119,16 +198,18 @@ object NahFilterInjectionOptimizationRule
       var buildExpression = expression.asInstanceOf[BuildExpression]
 
       // collect AttributeReferences from buildExpression
-      for (expression <- buildExpression.children) {
+      for ((expression, i) <- buildExpression.children.view.zipWithIndex) {
         expression match {
           case literal @ Literal(value, dataType) => {
             var double = Converter.toDouble(value)  
 
-            // TODO - only compute on every other
-            minX = scala.math.min(minX, double)
-            maxX = scala.math.max(maxX, double)
-            minY = scala.math.min(minY, double)
-            maxY = scala.math.max(maxY, double)
+            if (i % 2 == 0) {
+              minX = scala.math.min(minX, double)
+              maxX = scala.math.max(maxX, double)
+            } else {
+              minY = scala.math.min(minY, double)
+              maxY = scala.math.max(maxY, double)
+            }
           }
         }
       }
@@ -137,5 +218,29 @@ object NahFilterInjectionOptimizationRule
     }
 
     (minX, maxX, minY, maxY)
+  }
+
+  def updateLowerBound(map: Map[String, (Double, Double)],
+      name: String, value: Double) = {
+    if (!map.contains(name)) {
+      // if bounds do not exist -> insert new bounds
+      map(name) = (value, java.lang.Double.MIN_VALUE)
+    } else if (value < map(name)._1) {
+      // if bounds are more restrictive -> update existing lower bound
+      var bounds = map(name)
+      map(name) = (value, bounds._2)
+    }
+  }
+
+  def updateUpperBound(map: Map[String, (Double, Double)],
+      name: String, value: Double) = {
+    if (!map.contains(name)) {
+      // if bounds do not exist -> insert new bounds
+      map(name) = (java.lang.Double.MAX_VALUE, value)
+    } else if (value > map(name)._2) {
+      // if bounds are more restrictive -> update existing lower bound
+      var bounds = map(name)
+      map(name) = (bounds._1, value)
+    }
   }
 }

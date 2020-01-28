@@ -282,10 +282,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
     // TODO - check this?
-    for (filter <- filters) {
-      println("TESTING TO USE FILTER: " + filter)
-    }
-
     // parse out filters applicable to the nah file system
     val (nahFilters, rest) = filters.partition(isNahFilter(_))
     this.filters = nahFilters
