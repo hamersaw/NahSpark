@@ -27,11 +27,6 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
-object NahSource {
-  final val GEOHASH_FIELD = "nahGeohash"
-  final val TIMESTAMP_FIELD = "nahTimestamp"
-}
-
 class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
   override def shortName() = "nah"
 

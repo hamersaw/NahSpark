@@ -24,8 +24,9 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     var schema = StructType(dataSchema)
-    schema = schema.add(NahSource.GEOHASH_FIELD, StringType, true)
-    schema = schema.add(NahSource.TIMESTAMP_FIELD, LongType, true)
+    // TODO - remove
+    //schema = schema.add(NahSource.GEOHASH_FIELD, StringType, true)
+    //schema = schema.add(NahSource.TIMESTAMP_FIELD, LongType, true)
     schema
   }
 
@@ -37,7 +38,14 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       : List[InputPartition[InternalRow]] = {
     // compile nah filter query
     var nahQueryExpressions = new ListBuffer[String]()
+    // TODO - process filters
     for (filter <- filters) {
+      filter match {
+        case _ => println("TODO - support filter: " + filter)
+      }
+    }
+
+    /*for (filter <- filters) {
       filter match {
         case EqualTo(NahSource.GEOHASH_FIELD, const) =>
           nahQueryExpressions += ("g=" + const)
@@ -53,7 +61,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           nahQueryExpressions += ("t<=" + const)
         case _ => println("TODO - support nah filter:" + filter)
       }
-    }
+    }*/
 
     val nahQuery = nahQueryExpressions.mkString("&")
 
@@ -273,6 +281,11 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
   }
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
+    // TODO - check this?
+    for (filter <- filters) {
+      println("TESTING TO USE FILTER: " + filter)
+    }
+
     // parse out filters applicable to the nah file system
     val (nahFilters, rest) = filters.partition(isNahFilter(_))
     this.filters = nahFilters
@@ -286,14 +299,15 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   private def isNahFilter(filter: Filter): Boolean = {
     filter match {
-      case EqualTo(NahSource.GEOHASH_FIELD, _) => true
-      case GreaterThan(NahSource.TIMESTAMP_FIELD, _) => true
-      case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
-      case IsNotNull(NahSource.GEOHASH_FIELD) => true
-      case IsNotNull(NahSource.TIMESTAMP_FIELD) => true
-      case LessThan(NahSource.TIMESTAMP_FIELD, _) => true
-      case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
-      case _ => false
+      // TODO - fix this code
+      //case EqualTo(NahSource.GEOHASH_FIELD, _) => true
+      //case GreaterThan(NahSource.TIMESTAMP_FIELD, _) => true
+      //case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
+      //case IsNotNull(NahSource.GEOHASH_FIELD) => true
+      //case IsNotNull(NahSource.TIMESTAMP_FIELD) => true
+      //case LessThan(NahSource.TIMESTAMP_FIELD, _) => true
+      //case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
+      case _ => true
     }
   }
 }
