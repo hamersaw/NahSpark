@@ -22,6 +22,7 @@ import com.bushpath.nah.spark.sql.util.Parser
 import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
 import java.net.Socket
 import java.util.Scanner
+import java.util.regex.Pattern;
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
@@ -125,12 +126,26 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
       }
     }
 
-    // TODO - parse storagePolicy to discover fileFormat 
-    // and spatiotemporal feature names
+    // parse storagePolicy
+    val pattern = Pattern.compile("(\\w+)\\((\\w+:\\w+)?(,\\s*\\w+:\\w+)*\\)");
+    val fieldsPattern = Pattern.compile("(\\w+):(\\w+)");
 
-    // initialize file format and options
-    val endIndex = storagePolicy.indexOf("(")
-    val fileFormatString = storagePolicy.substring(0, endIndex)
+    // check for match
+    val matcher = pattern.matcher(storagePolicy);
+    if (!matcher.matches) {
+      println("pattern doesn't match"); // TODO - log? exit?
+    }
+
+    // retrieve file format
+    matcher.find(0);
+    val fileFormat = matcher.group(1);
+
+    // retrieve fields
+    var formatFields = Map[String, String]()
+    val fieldMatcher = fieldsPattern.matcher(storagePolicy);
+    while (fieldMatcher.find) {
+      formatFields += (fieldMatcher.group(1) -> fieldMatcher.group(2))
+    }
 
     // compile dataSchema
     val dataSchema: StructType =
@@ -143,7 +158,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         }
 
         // inferSchema using Spark FileFormat
-        fileFormatString match {
+        fileFormat match {
           case "CsvPoint" => {
             new CSVFileFormat().inferSchema(SparkSession.active,
               Map("inferSchema" -> "true"), files).orNull
@@ -256,6 +271,6 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     }
 
     // return new NahSourceReader
-    new NahSourceReader(fileMap, dataSchema)
+    new NahSourceReader(fileMap, dataSchema, fileFormat, formatFields)
   }
 }

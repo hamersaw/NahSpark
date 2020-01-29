@@ -39,7 +39,7 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
     - Optimizer.scala : line 948 outlines 'PushDownPredicate' rule
 
 ## TODO
-- **Nah Expressions to translatable spatiotemporal filters**
-    - necessary for enabling PredicatePushDown on everything
+- **catalyst optimization to rearrange filters**
+    - "attribute" op "literal" -- simplifies the pipeline
 - spatial queries - kNN, spatial joins, etc
 - support timestamp queries

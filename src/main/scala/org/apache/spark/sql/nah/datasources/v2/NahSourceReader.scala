@@ -1,6 +1,8 @@
 package org.apache.spark.sql.nah.datasources.v2
 
+import com.bushpath.geohash.Geohash
 import com.bushpath.hdfs_comm.ipc.rpc.RpcClient
+import com.bushpath.nah.spark.sql.util.Converter
 
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 import org.apache.hadoop.fs.FileStatus
@@ -20,13 +22,11 @@ import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
 class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
-    dataSchema: StructType) extends DataSourceReader
+    dataSchema: StructType, fileFormat: String,
+    formatFields: Map[String, String]) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     var schema = StructType(dataSchema)
-    // TODO - remove
-    //schema = schema.add(NahSource.GEOHASH_FIELD, StringType, true)
-    //schema = schema.add(NahSource.TIMESTAMP_FIELD, LongType, true)
     schema
   }
 
@@ -38,34 +38,84 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       : List[InputPartition[InternalRow]] = {
     // compile nah filter query
     var nahQueryExpressions = new ListBuffer[String]()
-    // TODO - process filters
+
+    val latitude = getLatitudeFeature
+    val longitude = getLongitudeFeature
+    var minLat= -java.lang.Double.MAX_VALUE
+    var maxLat= java.lang.Double.MAX_VALUE
+    var minLong= -java.lang.Double.MAX_VALUE
+    var maxLong= java.lang.Double.MAX_VALUE
+
+    // process filters
     for (filter <- filters) {
       filter match {
+        case GreaterThan(a, b) => {
+          if (a == latitude) {
+            minLat= scala.math.max(minLat, Converter.toDouble(b))
+          } else if (a == longitude) {
+            minLong= scala.math.max(minLong, Converter.toDouble(b))
+          }
+        }
+        case GreaterThanOrEqual(a, b) => {
+          if (a == latitude) {
+            minLat= scala.math.max(minLat, Converter.toDouble(b))
+          } else if (a == longitude) {
+            minLong= scala.math.max(minLong, Converter.toDouble(b))
+          }
+        }
+        case LessThan(a, b) => {
+          if (a == latitude) {
+            maxLat= scala.math.min(maxLat, Converter.toDouble(b))
+          } else if (a == longitude) {
+            maxLong= scala.math.min(maxLong, Converter.toDouble(b))
+          }
+        }
+        case LessThanOrEqual(a, b) => {
+          if (a == latitude) {
+            maxLat= scala.math.min(maxLat, Converter.toDouble(b))
+          } else if (a == longitude) {
+            maxLong= scala.math.min(maxLong, Converter.toDouble(b))
+          }
+        }
         case _ => println("TODO - support filter: " + filter)
       }
     }
 
-    /*for (filter <- filters) {
-      filter match {
-        case EqualTo(NahSource.GEOHASH_FIELD, const) =>
-          nahQueryExpressions += ("g=" + const)
-        case GreaterThan(NahSource.TIMESTAMP_FIELD, const) =>
-          nahQueryExpressions += ("t>" + const)
-        case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, const) =>
-          nahQueryExpressions += ("t>=" + const)
-        case IsNotNull(NahSource.GEOHASH_FIELD) => {}
-        case IsNotNull(NahSource.TIMESTAMP_FIELD) => {}
-        case LessThan(NahSource.TIMESTAMP_FIELD, const) =>
-          nahQueryExpressions += ("t<" + const)
-        case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, const) =>
-          nahQueryExpressions += ("t<=" + const)
-        case _ => println("TODO - support nah filter:" + filter)
+    println("NahSource bounded by (" + minLat+ " " 
+      + maxLat+ " " + minLong+ " " + maxLong+ ")")
+
+    // calculate bounding geohash
+    val geohashBound1 = Geohash.encode16(minLat, minLong, 6)
+    val geohashBound2 = Geohash.encode16(minLat, maxLong, 6)
+    val geohashBound3 = Geohash.encode16(maxLat, minLong, 6)
+    val geohashBound4 = Geohash.encode16(maxLat, maxLong, 6)
+
+    println(geohashBound1 + " : " + geohashBound2
+      + " : " + geohashBound3 + " : " + geohashBound3)
+
+    var count = 0;
+    breakable {
+      while (true) {
+        if (geohashBound1(count) == geohashBound2(count)
+            && geohashBound1(count) == geohashBound3(count)
+            && geohashBound1(count) == geohashBound4(count)) {
+          count += 1
+        } else {
+          break
+        }
       }
-    }*/
+    }
 
-    val nahQuery = nahQueryExpressions.mkString("&")
+    val geohashBound = geohashBound1.substring(0, count)
+    println("BOUNDING GEOHASH: '" + geohashBound + "'")
+    //val nahQuery = nahQueryExpressions.mkString("&")
+ 
+    var nahQuery = "";
+    if (!geohashBound.isEmpty) {
+      nahQuery += "g=" + geohashBound
+    }
 
-    // TODO - submit requests within threads
+    // submit requests within threads
     val threadCount = 4
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
     val outputQueue = new ArrayBlockingQueue[Any](128)
@@ -80,8 +130,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
             if (filename.isEmpty) {
               break
             }
-
-            //println("processing file '" + filename + ":" + length);
 
             // send GetFileInfo request
             val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
@@ -148,7 +196,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           // parse block id
           val blockId = lbProto.getB.getBlockId
           blocks += (blockId -> lbProto)
-          //println("added block '" + blockId + "'")
 
           // parse locations
           for (diProto <- lbProto.getLocsList) {
@@ -169,61 +216,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
         }
       }
     }
-
-    /*for ((id, files) <- this.fileMap) {
-      // parse ipAddress, port
-      val idFields = id.split(":")
-      val (ipAddress, port) = (idFields(0), idFields(1).toInt)
-
-      for (file <- files) {
-        // compile file path with nahQuery
-        var path = file.getPath.toString
-        if (!nahQuery.isEmpty) {
-          path += ("+" + nahQuery)
-        }
-
-        // send GetFileInfo request
-        val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
-          "org.apache.hadoop.hdfs.protocol.ClientProtocol")
-        val gblRequest = ClientNamenodeProtocolProtos
-          .GetBlockLocationsRequestProto.newBuilder()
-            .setSrc(path)
-            .setOffset(0)
-            .setLength(file.getLen)
-            .build
-
-        val gblIn = gblRpcClient.send("getBlockLocations", gblRequest)
-        val gblResponse = ClientNamenodeProtocolProtos
-          .GetBlockLocationsResponseProto.parseDelimitedFrom(gblIn)
-        gblIn.close
-        gblRpcClient.close
-
-        // process block locations
-        val lbsProto = gblResponse.getLocations
-        for (lbProto <- lbsProto.getBlocksList) {
-          // parse block id
-          val blockId = lbProto.getB.getBlockId
-          blocks += (blockId -> lbProto)
-
-          // parse locations
-          for (diProto <- lbProto.getLocsList) {
-            val didProto = diProto.getId
-            val address = didProto.getIpAddr + ":" + didProto.getXferPort
-
-            val set = hosts.get(address) match {
-              case Some(set) => set
-              case None => {
-                val set: HashSet[Long] = new HashSet
-                hosts += (address -> set)
-                set
-              }
-            }
-
-            set.add(blockId)
-          }
-        }
-      }
-    }*/
 
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
@@ -266,8 +258,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
         }
       } }
 
-      //println("partition " + blockId + " " + locations.toList)
-
       // initialize block partition
       partitions += new NahPartition(dataSchema, requiredSchema,
         blockId, lbProto.getB.getNumBytes, locations.toArray)
@@ -281,10 +271,9 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
   }
 
   override def pushFilters(filters: Array[Filter]): Array[Filter] = {
-    // TODO - check this?
     // parse out filters applicable to the nah file system
-    val (nahFilters, rest) = filters.partition(isNahFilter(_))
-    this.filters = nahFilters
+    val (validFilters, rest) = filters.partition(isValidFilter(_))
+    this.filters = validFilters
 
     rest
   }
@@ -293,17 +282,36 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     this.filters
   }
 
-  private def isNahFilter(filter: Filter): Boolean = {
+  private def getLatitudeFeature(): String = {
+    fileFormat match {
+      case "CsvPoint" => {
+        val index = formatFields("latitude_index").toInt
+        dataSchema.fieldNames(index)
+      }
+      case _ => null
+    }
+  }
+
+  private def getLongitudeFeature(): String = {
+    fileFormat match {
+      case "CsvPoint" => {
+        val index = formatFields("longitude_index").toInt
+        dataSchema.fieldNames(index)
+      }
+      case _ => null
+    }
+  }
+
+  private def isValidFilter(filter: Filter): Boolean = {
+    val latitude = getLatitudeFeature
+    val longitude = getLongitudeFeature
+    
     filter match {
-      // TODO - fix this code
-      //case EqualTo(NahSource.GEOHASH_FIELD, _) => true
-      //case GreaterThan(NahSource.TIMESTAMP_FIELD, _) => true
-      //case GreaterThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
-      //case IsNotNull(NahSource.GEOHASH_FIELD) => true
-      //case IsNotNull(NahSource.TIMESTAMP_FIELD) => true
-      //case LessThan(NahSource.TIMESTAMP_FIELD, _) => true
-      //case LessThanOrEqual(NahSource.TIMESTAMP_FIELD, _) => true
-      case _ => true
+      case GreaterThan(x, _) => x == latitude || x == longitude
+      case GreaterThanOrEqual(x, _) =>  x == latitude || x == longitude
+      case LessThan(x, _) =>  x == latitude || x == longitude
+      case LessThanOrEqual(x, _) =>  x == latitude || x == longitude
+      case _ => false
     }
   }
 }

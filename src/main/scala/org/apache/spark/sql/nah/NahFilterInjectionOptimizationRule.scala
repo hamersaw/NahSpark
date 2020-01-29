@@ -33,6 +33,7 @@ object NahFilterInjectionOptimizationRule
           var a = getAttributeReferences(expressions(0))
           var b = getAttributeReferences(expressions(1))
           
+          // add AttributeReferences to map for later retrieval
           for (attribute <- a) {
             if (!attributes.contains(attribute.name)) {
               attributes(attribute.name) = attribute
@@ -70,6 +71,7 @@ object NahFilterInjectionOptimizationRule
         }
  
         // check for existing boundaries
+        // TODO - fix this a and b bullshit
         filter match {
           case greaterThan @ GreaterThan(a, b) => {
             if (a.isInstanceOf[AttributeReference]
@@ -126,16 +128,6 @@ object NahFilterInjectionOptimizationRule
           case _ => {}
         }
       }
-
-      /*println("UPDATED BOUNDARIES")
-      for ((key, value) <- updatedBoundaries) {
-        println(key + " : " + value)
-      }
-
-      println("EXISTING BOUNDARIES")
-      for ((key, value) <- existingBoundaries) {
-        println(key + " : " + value)
-      }*/
 
       // compute injected expressions
       val injectedExpressions = ArrayBuffer.empty[Expression]
