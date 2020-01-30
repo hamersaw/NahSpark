@@ -1,7 +1,7 @@
 package org.apache.spark.sql.nah
 
 import com.bushpath.nah.spark.sql.util.Converter
-import org.apache.spark.sql.nah.expressions._
+import org.apache.spark.sql.nah.expressions.{BooleanExpression, BuildExpression, Contains, Covers, Equals, EqualsTollerance, Within}
 
 import org.apache.spark.sql.catalyst.expressions.{And, AttributeReference, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, PredicateHelper}
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan}
@@ -46,10 +46,86 @@ object NahFilterInjectionOptimizationRule
 
           // process filter
           filter match {
+            case _: Contains => {
+              if (a.size == 0 && b.size >= 2) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(2))
+
+                updateLowerBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._1)
+                updateUpperBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._2)
+                updateLowerBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._3)
+                updateUpperBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._4)
+              } else {
+                println("unsupported injection filter: contains("
+                  + a.size + "," + b.size + ")")
+              }
+            }
+            case _: Covers => {
+              if (a.size == 0 && b.size >= 2) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(2))
+
+                updateLowerBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._1)
+                updateUpperBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._2)
+                updateLowerBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._3)
+                updateUpperBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._4)
+              } else {
+                println("unsupported injection filter: covers("
+                  + a.size + "," + b.size + ")")
+              }
+            }
+            case _: Equals => {
+              if (a.size >= 2 && b.size == 0) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(1))
+
+                updateLowerBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._1)
+                updateUpperBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._2)
+                updateLowerBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._3)
+                updateUpperBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._4)
+              } else if (a.size == 0 && b.size >= 2) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(2))
+
+                updateLowerBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._1)
+                updateUpperBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._2)
+                updateLowerBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._3)
+                updateUpperBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._4)
+              } else {
+                println("unsupported injection filter: equals("
+                  + a.size + "," + b.size + ")")
+              }
+            }
+            case _: EqualsTollerance => {
+              // TODO - implement injection filter
+              println("TODO - support injection filter: equalsTollerance("
+                + a.size + "," + b.size + ")")
+            }
             case _: Within => {
               if (a.size >= 2 && b.size == 0) {
                 // building bounded geometry from coordinates
-                val spatialBoundaries = getSpatialBoundaries(expressions(1))
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(1))
 
                 updateLowerBound(updatedBoundaries,
                   a(0).name, spatialBoundaries._1)
