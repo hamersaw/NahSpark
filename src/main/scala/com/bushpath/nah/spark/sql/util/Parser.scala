@@ -1,6 +1,6 @@
 package com.bushpath.nah.spark.sql.util
 
-import java.util.regex.{Matcher, Pattern}
+import java.util.regex.Pattern
 
 object Parser {
     val hdfsUrlPattern = 

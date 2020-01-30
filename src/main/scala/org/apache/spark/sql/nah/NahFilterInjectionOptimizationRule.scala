@@ -3,11 +3,9 @@ package org.apache.spark.sql.nah
 import com.bushpath.nah.spark.sql.util.Converter
 import org.apache.spark.sql.nah.expressions._
 
-import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.catalyst.expressions.{And, AttributeReference, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, PredicateHelper}
-import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan, UnaryNode}
+import org.apache.spark.sql.catalyst.plans.logical.{Filter, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.sources.v2.DataSourceV2
 import org.apache.spark.sql.types.DoubleType
 
 import scala.collection.mutable.{ArrayBuffer, Map}
@@ -16,9 +14,9 @@ object NahFilterInjectionOptimizationRule
     extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case filter @ Filter(condition, child) => {
-      var updatedBoundaries = Map[String, (Double, Double)]()
-      var existingBoundaries = Map[String, (Double, Double)]()
-      var attributes = Map[String, AttributeReference]()
+      val updatedBoundaries = Map[String, (Double, Double)]()
+      val existingBoundaries = Map[String, (Double, Double)]()
+      val attributes = Map[String, AttributeReference]()
 
       // iterate over available filters
       val filters = splitConjunctivePredicates(condition)
@@ -26,12 +24,12 @@ object NahFilterInjectionOptimizationRule
         // check if filter is a BooleanExpression
         if (filter.isInstanceOf[BooleanExpression]) {
           // retreive BooleanExpression children
-          var booleanExpression = filter.asInstanceOf[BooleanExpression]
-          var expressions = booleanExpression.children
+          val booleanExpression = filter.asInstanceOf[BooleanExpression]
+          val expressions = booleanExpression.children
 
           // collect AttributeReferences from BooleanExpression children
-          var a = getAttributeReferences(expressions(0))
-          var b = getAttributeReferences(expressions(1))
+          val a = getAttributeReferences(expressions(0))
+          val b = getAttributeReferences(expressions(1))
           
           // add AttributeReferences to map for later retrieval
           for (attribute <- a) {
@@ -163,7 +161,7 @@ object NahFilterInjectionOptimizationRule
 
     // check if expression is case class of BuildExpression
     if (expression.isInstanceOf[BuildExpression]) {
-      var buildExpression = expression.asInstanceOf[BuildExpression]
+      val buildExpression = expression.asInstanceOf[BuildExpression]
 
       // collect AttributeReferences from buildExpression
       for (expression <- buildExpression.children) {
@@ -187,13 +185,13 @@ object NahFilterInjectionOptimizationRule
 
     // check if expression is case class of BuildExpression
     if (expression.isInstanceOf[BuildExpression]) {
-      var buildExpression = expression.asInstanceOf[BuildExpression]
+      val buildExpression = expression.asInstanceOf[BuildExpression]
 
       // collect AttributeReferences from buildExpression
       for ((expression, i) <- buildExpression.children.view.zipWithIndex) {
         expression match {
           case literal @ Literal(value, dataType) => {
-            var double = Converter.toDouble(value)  
+            val double = Converter.toDouble(value)  
 
             if (i % 2 == 0) {
               minX = scala.math.min(minX, double)
@@ -219,7 +217,7 @@ object NahFilterInjectionOptimizationRule
       map(name) = (value, java.lang.Double.MIN_VALUE)
     } else if (value < map(name)._1) {
       // if bounds are more restrictive -> update existing lower bound
-      var bounds = map(name)
+      val bounds = map(name)
       map(name) = (value, bounds._2)
     }
   }
@@ -231,7 +229,7 @@ object NahFilterInjectionOptimizationRule
       map(name) = (java.lang.Double.MAX_VALUE, value)
     } else if (value > map(name)._2) {
       // if bounds are more restrictive -> update existing lower bound
-      var bounds = map(name)
+      val bounds = map(name)
       map(name) = (bounds._1, value)
     }
   }

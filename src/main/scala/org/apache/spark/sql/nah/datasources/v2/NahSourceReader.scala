@@ -8,10 +8,10 @@ import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, Hdfs
 import org.apache.hadoop.fs.FileStatus
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.sources.{EqualTo, GreaterThan, GreaterThanOrEqual, IsNotNull, LessThan, LessThanOrEqual}
+import org.apache.spark.sql.sources.{GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
-import org.apache.spark.sql.types.{LongType, StructType}
+import org.apache.spark.sql.types.StructType
 
 import java.lang.Thread
 import java.util.{ArrayList, HashSet, List}
@@ -26,7 +26,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     formatFields: Map[String, String]) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
-    var schema = StructType(dataSchema)
+    val schema = StructType(dataSchema)
     schema
   }
 
@@ -37,7 +37,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
     // compile nah filter query
-    var nahQueryExpressions = new ListBuffer[String]()
+    //val nahQueryExpressions = new ListBuffer[String]()
 
     val latitude = getLatitudeFeature
     val longitude = getLongitudeFeature
@@ -224,7 +224,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     var primaryLocations: Map[String, Int] = Map()
 
     for ((blockId, lbProto) <- blocks) {
-      var locations = new ListBuffer[String]()
+      val locations = new ListBuffer[String]()
       breakable { while (true) {
         // find host containing block with shortest blockId list
         var blockHostOption: Option[String] = None

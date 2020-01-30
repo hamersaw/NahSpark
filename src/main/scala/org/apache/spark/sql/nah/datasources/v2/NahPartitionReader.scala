@@ -1,10 +1,5 @@
 package org.apache.spark.sql.nah.datasources.v2
 
-import com.bushpath.hdfs_comm.checksum.ChecksumFactory
-import com.bushpath.hdfs_comm.ipc.datatransfer.{BlockInputStream, DataTransferProtocol}
-
-import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos
-
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.csv.CSVOptions
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader

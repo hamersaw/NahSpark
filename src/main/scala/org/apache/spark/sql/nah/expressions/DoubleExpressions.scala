@@ -3,7 +3,6 @@ package org.apache.spark.sql.nah.expressions
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.catalyst.util.ArrayData
 import org.apache.spark.sql.types.{DataType, DoubleType}
 
 import com.bushpath.nah.spark.sql.util.Converter;

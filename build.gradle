@@ -3,7 +3,7 @@ plugins {
     id "com.github.johnrengelman.shadow" version "5.1.0"
 }
 
-version '0.1.0'
+version '0.1.1'
 
 // define repositories
 repositories {
@@ -25,4 +25,8 @@ dependencies {
 configurations {
     runtime.exclude module: 'spark-sql_2.11'
     runtime.exclude module: 'scala-library'
+}
+
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.additionalParameters = ["-Ywarn-dead-code", "-Ywarn-unused", "-Ywarn-value-discard"]
 }
