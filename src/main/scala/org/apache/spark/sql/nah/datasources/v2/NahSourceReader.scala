@@ -11,7 +11,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources.{EqualTo, GreaterThan, GreaterThanOrEqual, IsNotNull, LessThan, LessThanOrEqual}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition, SupportsPushDownFilters, SupportsPushDownRequiredColumns}
-import org.apache.spark.sql.types.{LongType, StringType, StructType}
+import org.apache.spark.sql.types.{LongType, StructType}
 
 import java.lang.Thread
 import java.util.{ArrayList, HashSet, List}
@@ -48,6 +48,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
     // process filters
     for (filter <- filters) {
+      //println("NahSourceReader process filter: " + filter)
+
       filter match {
         case GreaterThan(a, b) => {
           if (a == latitude) {
@@ -81,8 +83,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
-    println("NahSource bounded by (" + minLat+ " " 
-      + maxLat+ " " + minLong+ " " + maxLong+ ")")
+    //println("(" + minLat+ " " 
+    //  + maxLat+ " " + minLong+ " " + maxLong+ ")")
 
     // calculate bounding geohash
     val geohashBound1 = Geohash.encode16(minLat, minLong, 6)
@@ -107,7 +109,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     }
 
     val geohashBound = geohashBound1.substring(0, count)
-    println("BOUNDING GEOHASH: '" + geohashBound + "'")
+    //println("BOUNDING GEOHASH: '" + geohashBound + "'")
     //val nahQuery = nahQueryExpressions.mkString("&")
  
     var nahQuery = "";

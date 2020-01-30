@@ -15,7 +15,7 @@ import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
 import org.apache.spark.sql.sources.DataSourceRegister
 import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, ReadSupport}
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.types.{DoubleType, StructType}
 
 import com.bushpath.nah.spark.sql.util.Parser
 
@@ -263,7 +263,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         // compile StructType
         var dataSchema = new StructType()
         for (i <- 0 to delimiterCount) {
-          dataSchema = dataSchema.add("_c" + i, StringType, true)
+          dataSchema = dataSchema.add("_c" + i, DoubleType, true)
         }
 
         dataSchema

@@ -31,13 +31,6 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 - https://datasystemslab.github.io/GeoSpark/tutorial/sql/
 - http://blog.madhukaraphatak.com/introduction-to-spark-two-part-6/
 
-## SPARK FILES FOR DEVELOPMENTAL HELP
-#### LOGICAL PLAN MANIPULATION
-- sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/
-    - basicLogicalOperators.scala : case classes for logical plan nodes
-- sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/
-    - Optimizer.scala : line 948 outlines 'PushDownPredicate' rule
-
 ## TODO
 - **catalyst optimization to rearrange filters**
     - "attribute" op "literal" -- simplifies the pipeline
