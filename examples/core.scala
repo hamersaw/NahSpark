@@ -18,7 +18,7 @@ df.createOrReplaceTempView("nah_test")
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Distance(BuildPoint(_c0, _c1), BuildPoint(0.0, 10.0)) < 10")
 
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Within(BuildPoint(_c0, _c1), BuildPolygon(0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0))")
-var spatialDf = spark.sql("SELECT * FROM nah_test WHERE _c0 > 0.0")
+var spatialDf = spark.sql("SELECT * FROM nah_test WHERE 0.0 < _c0")
 val count = spatialDf.count()
 println("spatialDf.count() = " + count)
 

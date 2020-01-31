@@ -83,8 +83,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
-    //println("(" + minLat+ " " 
-    //  + maxLat+ " " + minLong+ " " + maxLong+ ")")
+    println("(" + minLat + " " + maxLat
+      + " " + minLong + " " + maxLong + ")")
 
     // calculate bounding geohash
     val geohashBound1 = Geohash.encode16(minLat, minLong, 6)

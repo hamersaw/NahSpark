@@ -32,8 +32,6 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 - http://blog.madhukaraphatak.com/introduction-to-spark-two-part-6/
 
 ## TODO
-- __catalyst optimization to rearrange filters__
-    - "attribute" op "literal" -- simplifies the pipeline
 - __implement spatial joins__
 - implement injection filter on equalsTollerance
 - support timestamp queries

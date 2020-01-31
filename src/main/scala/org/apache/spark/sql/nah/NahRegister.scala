@@ -58,6 +58,6 @@ object NahRegister {
 
     // register filter injection optimization
     sparkSession.experimental.extraOptimizations =
-      Seq(NahFilterInjectionOptimizationRule)
+      Seq(FilterInjectionOptimizationRule, FilterRearrangeOptimizationRule)
   }
 }

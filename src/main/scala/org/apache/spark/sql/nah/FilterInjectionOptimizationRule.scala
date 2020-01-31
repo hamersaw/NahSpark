@@ -10,7 +10,7 @@ import org.apache.spark.sql.types.DoubleType
 
 import scala.collection.mutable.{ArrayBuffer, Map}
 
-object NahFilterInjectionOptimizationRule
+object FilterInjectionOptimizationRule
     extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case filter @ Filter(condition, child) => {
@@ -145,17 +145,11 @@ object NahFilterInjectionOptimizationRule
         }
  
         // check for existing boundaries
-        // TODO - fix this a and b bullshit
         filter match {
           case greaterThan @ GreaterThan(a, b) => {
             if (a.isInstanceOf[AttributeReference]
                 && b.isInstanceOf[Literal]) {
               updateLowerBound(existingBoundaries, 
-                a.asInstanceOf[AttributeReference].name,
-                Converter.toDouble(b.asInstanceOf[Literal].value))
-            } else if (a.isInstanceOf[AttributeReference]
-                && b.isInstanceOf[Literal]) {
-              updateUpperBound(existingBoundaries, 
                 a.asInstanceOf[AttributeReference].name,
                 Converter.toDouble(b.asInstanceOf[Literal].value))
             }
@@ -166,11 +160,6 @@ object NahFilterInjectionOptimizationRule
               updateLowerBound(existingBoundaries, 
                 a.asInstanceOf[AttributeReference].name,
                 Converter.toDouble(b.asInstanceOf[Literal].value))
-            } else if (a.isInstanceOf[AttributeReference]
-                && b.isInstanceOf[Literal]) {
-              updateUpperBound(existingBoundaries, 
-                a.asInstanceOf[AttributeReference].name,
-                Converter.toDouble(b.asInstanceOf[Literal].value))
             }
           }
           case lessThan @ LessThan(a, b) => {
@@ -179,22 +168,12 @@ object NahFilterInjectionOptimizationRule
               updateUpperBound(existingBoundaries, 
                 a.asInstanceOf[AttributeReference].name,
                 Converter.toDouble(b.asInstanceOf[Literal].value))
-            } else if (a.isInstanceOf[AttributeReference]
-                && b.isInstanceOf[Literal]) {
-              updateLowerBound(existingBoundaries, 
-                a.asInstanceOf[AttributeReference].name,
-                Converter.toDouble(b.asInstanceOf[Literal].value))
             }
           }
           case lessThanOrEqual @ LessThanOrEqual(a, b) => {
             if (a.isInstanceOf[AttributeReference]
                 && b.isInstanceOf[Literal]) {
               updateUpperBound(existingBoundaries, 
-                a.asInstanceOf[AttributeReference].name,
-                Converter.toDouble(b.asInstanceOf[Literal].value))
-            } else if (a.isInstanceOf[AttributeReference]
-                && b.isInstanceOf[Literal]) {
-              updateLowerBound(existingBoundaries, 
                 a.asInstanceOf[AttributeReference].name,
                 Converter.toDouble(b.asInstanceOf[Literal].value))
             }
