@@ -33,5 +33,4 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 
 ## TODO
 - __implement spatial joins__
-- implement injection filter on equalsTollerance
 - support timestamp queries

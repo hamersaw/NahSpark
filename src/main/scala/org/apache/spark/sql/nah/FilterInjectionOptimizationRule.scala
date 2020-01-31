@@ -117,9 +117,38 @@ object FilterInjectionOptimizationRule
               }
             }
             case _: EqualsTollerance => {
-              // TODO - implement injection filter
-              println("TODO - support injection filter: equalsTollerance("
-                + a.size + "," + b.size + ")")
+              val tollerance = Converter.toDouble(expressions(2))
+
+              if (a.size >= 2 && b.size == 0) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(1))
+
+                updateLowerBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._1 - tollerance)
+                updateUpperBound(updatedBoundaries,
+                  a(0).name, spatialBoundaries._2 + tollerance)
+                updateLowerBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._3 - tollerance)
+                updateUpperBound(updatedBoundaries,
+                  a(1).name, spatialBoundaries._4 + tollerance)
+              } else if (a.size == 0 && b.size >= 2) {
+                // building bounded geometry from coordinates
+                val spatialBoundaries =
+                  getSpatialBoundaries(expressions(2))
+
+                updateLowerBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._1 - tollerance)
+                updateUpperBound(updatedBoundaries,
+                  b(0).name, spatialBoundaries._2 + tollerance)
+                updateLowerBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._3 - tollerance)
+                updateUpperBound(updatedBoundaries,
+                  b(1).name, spatialBoundaries._4 + tollerance)
+              } else {
+                println("unsupported injection filter: equalsTollerance("
+                  + a.size + "," + b.size + ")")
+              }
             }
             case _: Within => {
               if (a.size >= 2 && b.size == 0) {
