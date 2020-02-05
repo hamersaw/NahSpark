@@ -1,8 +1,8 @@
 package org.apache.spark.sql.nah.datasources.v2
 
-import com.bushpath.geohash.Geohash
-import com.bushpath.hdfs_comm.ipc.rpc.RpcClient
-import com.bushpath.nah.spark.sql.util.Converter
+import io.blackpine.geohash.Geohash
+import io.blackpine.hdfs_comm.ipc.rpc.RpcClient
+import io.blackpine.nah.spark.sql.util.Converter
 
 import org.apache.hadoop.hdfs.protocol.proto.{ClientNamenodeProtocolProtos, HdfsProtos}
 import org.apache.hadoop.fs.FileStatus

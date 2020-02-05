@@ -1,4 +1,4 @@
-package com.bushpath.nah.spark.sql.util
+package io.blackpine.nah.spark.sql.util
 
 import java.util.regex.Pattern
 

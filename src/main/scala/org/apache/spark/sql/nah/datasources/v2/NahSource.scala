@@ -1,6 +1,6 @@
 package org.apache.spark.sql.nah.datasources.v2
 
-import com.bushpath.hdfs_comm.ipc.rpc.RpcClient
+import io.blackpine.hdfs_comm.ipc.rpc.RpcClient
 
 import com.google.protobuf.ByteString
 
@@ -15,7 +15,7 @@ import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, ReadSup
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader
 import org.apache.spark.sql.types.{DoubleType, StructType}
 
-import com.bushpath.nah.spark.sql.util.Parser
+import io.blackpine.nah.spark.sql.util.Parser
 
 import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
 import java.net.Socket

@@ -1,6 +1,6 @@
 package org.apache.spark.sql.nah
 
-import com.bushpath.nah.spark.sql.util.Converter
+import io.blackpine.nah.spark.sql.util.Converter
 import org.apache.spark.sql.nah.expressions.{BooleanExpression, BuildExpression, Contains, Covers, Equals, EqualsTollerance, Within}
 
 import org.apache.spark.sql.catalyst.expressions.{And, AttributeReference, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, PredicateHelper}

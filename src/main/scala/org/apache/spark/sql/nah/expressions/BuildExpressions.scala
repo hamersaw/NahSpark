@@ -7,7 +7,7 @@ import org.apache.spark.sql.types.DataType
 import org.locationtech.jts.geom.{LinearRing, LineString, Point, Polygon}
 import org.locationtech.jts.geom.impl.CoordinateArraySequence
 
-import com.bushpath.nah.spark.sql.util.{Converter, GeometryUtil, Serializer}
+import io.blackpine.nah.spark.sql.util.{Converter, GeometryUtil, Serializer}
 import org.apache.spark.sql.nah.NahGeometryUDT
 
 abstract class BuildExpression(inputExpressions: Seq[Expression])

@@ -1,4 +1,4 @@
-package com.bushpath.nah.spark.sql.util
+package io.blackpine.nah.spark.sql.util
 
 import org.apache.spark.sql.catalyst.util.ArrayData
 import org.apache.spark.sql.types.Decimal

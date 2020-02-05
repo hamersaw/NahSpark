@@ -4,12 +4,6 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
 
 ## COMMANDS
 #### SPARK SHELL (SQL)
-    // read dataframe from Nah csv file
-    import com.bushpath.nah.spark.sql.sources.NahRelation
-    val df = spark.sqlContext.read.format("nah").load("hdfs://127.0.0.1:9000/user/hamersaw")
-    df.printSchema()
-    df.show()
-
     // dataframe operations
     df.select("_c0").show()
     df.filter($"_c1" > 100).show()

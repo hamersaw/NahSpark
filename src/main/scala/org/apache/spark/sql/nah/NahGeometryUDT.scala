@@ -4,7 +4,7 @@ import org.apache.spark.sql.catalyst.util.ArrayData
 import org.apache.spark.sql.types.{ArrayType, ByteType, DataType, UserDefinedType}
 import org.locationtech.jts.geom.Geometry
 
-import com.bushpath.nah.spark.sql.util.Serializer
+import io.blackpine.nah.spark.sql.util.Serializer
 
 private[sql] class NahGeometryUDT extends UserDefinedType[Geometry] {
   override def deserialize(datum: Any): Geometry = {

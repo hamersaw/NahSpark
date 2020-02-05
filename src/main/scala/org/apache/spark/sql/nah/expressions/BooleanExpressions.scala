@@ -5,7 +5,7 @@ import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.types.{BooleanType, DataType}
 
-import com.bushpath.nah.spark.sql.util.Converter;
+import io.blackpine.nah.spark.sql.util.Converter;
 
 abstract class BooleanExpression(inputExpressions: Seq[Expression])
     extends Expression with CodegenFallback with Serializable {
