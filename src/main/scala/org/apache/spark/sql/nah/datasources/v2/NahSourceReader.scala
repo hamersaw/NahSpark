@@ -14,11 +14,10 @@ import org.apache.spark.sql.sources.v2.reader.{DataSourceReader, InputPartition,
 import org.apache.spark.sql.types.StructType
 
 import java.lang.Thread
-import java.util.{ArrayList, HashSet, List}
+import java.util.{ArrayList, List}
 import java.util.concurrent.ArrayBlockingQueue
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
 class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
@@ -36,7 +35,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
-    val filterStart = System.currentTimeMillis
     // compile nah filter query
     val latitude = getLatitudeFeature
     val longitude = getLongitudeFeature
@@ -80,8 +78,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
-    println("(" + minLat + " " + maxLat
-      + " " + minLong + " " + maxLong + ")")
+    //println("(" + minLat + " " + maxLat
+    //  + " " + minLong + " " + maxLong + ")")
 
     // calculate bounding geohash
     val geohashBound1 = Geohash.encode16(minLat, minLong, 6)
@@ -89,8 +87,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     val geohashBound3 = Geohash.encode16(maxLat, minLong, 6)
     val geohashBound4 = Geohash.encode16(maxLat, maxLong, 6)
 
-    println(geohashBound1 + " : " + geohashBound2
-      + " : " + geohashBound3 + " : " + geohashBound3)
+    //println(geohashBound1 + " : " + geohashBound2
+    //  + " : " + geohashBound3 + " : " + geohashBound3)
 
     var count = 0;
     breakable {
@@ -114,10 +112,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       nahQuery += "g=" + geohashBound
     }
 
-    val filterDuration = System.currentTimeMillis - filterStart
-    println("filterDuration: " + filterDuration)
-
-    val blockLocsStart = System.currentTimeMillis
     // submit requests within threads
     val threadCount = 4
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
@@ -183,52 +177,9 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       inputQueue.put(("", 0, "", 0))
     }
 
-    // retrieve block list
-    /*var hosts: Map[String, HashSet[Long]] = Map()
-    var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
-
-    var poisonCount = 0
-    while (poisonCount < threadCount) {
-      val result = outputQueue.take()
-      if (!result.isInstanceOf[HdfsProtos.LocatedBlocksProto]) {
-        poisonCount += 1
-      } else {
-        val lbsProto = result.asInstanceOf[HdfsProtos.LocatedBlocksProto]
-
-        for (lbProto <- lbsProto.getBlocksList) {
-          // parse block id
-          val blockId = lbProto.getB.getBlockId
-          blocks += (blockId -> lbProto)
-
-          // parse locations
-          for (diProto <- lbProto.getLocsList) {
-            val didProto = diProto.getId
-            val address = didProto.getIpAddr + ":" + didProto.getXferPort
-
-            val set = hosts.get(address) match {
-              case Some(set) => set
-              case None => {
-                val set: HashSet[Long] = new HashSet
-                hosts += (address -> set)
-                set
-              }
-            }
-
-            set.add(blockId)
-          }
-        }
-      }
-    }*/
-
-    val blockLocsDuration = System.currentTimeMillis - blockLocsStart
-    println("blockLocsDuration: " + blockLocsDuration)
-
-    val partitionsStart = System.currentTimeMillis
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
-    //var primaryLocations: Map[String, Int] = Map()
 
-    // NEW!
     var poisonCount = 0
     while (poisonCount < threadCount) {
       val result = outputQueue.take()
@@ -246,56 +197,11 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
           // initialize block partition
           partitions += new NahPartition(dataSchema,
-            requiredSchema, lbProto.getB.gtBlockId,
+            requiredSchema, lbProto.getB.getBlockId,
             lbProto.getB.getNumBytes, locations, ports)
         }
       }
     }
-
-    /*for ((blockId, lbProto) <- blocks) {
-      val locations = new ListBuffer[String]()
-      breakable { while (true) {
-        // find host containing block with shortest blockId list
-        var blockHostOption: Option[String] = None
-        var blockHostLength = Integer.MAX_VALUE
-
-        for (host <- hosts.keys) {
-          val set = hosts(host)
-          if (set.contains(blockId)) {
-            if (blockHostOption == None 
-              || set.size < blockHostLength
-              || (set.size == blockHostLength &&
-                primaryLocations.get(blockHostOption.orNull).getOrElse(0) 
-                  > primaryLocations.get(host).getOrElse(0))) {
-              blockHostOption = Some(host)
-              blockHostLength = set.size
-            }
-          }
-        }
-
-        blockHostOption match {
-          // if host found -> add to locations
-          case Some(blockHost) => {
-            locations += blockHost
-            hosts.get(blockHost).orNull.remove(blockId)
-
-            if (locations.length == 1) {
-              val x = primaryLocations.get(blockHost).getOrElse(0)
-              primaryLocations += blockHost -> (x + 1)
-            }
-          }
-          // if host not found -> no hosts left -> break
-          case None => break
-        }
-      } }
-
-      // initialize block partition
-      partitions += new NahPartition(dataSchema, requiredSchema,
-        blockId, lbProto.getB.getNumBytes, locations.toArray)
-    }*/
-
-    val partitionsDuration = System.currentTimeMillis - partitionsStart
-    println("partitionsDuration: " + partitionsDuration)
 
     partitions
   }

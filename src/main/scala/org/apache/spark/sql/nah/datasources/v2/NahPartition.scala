@@ -12,8 +12,6 @@ class NahPartition(dataSchema: StructType, requiredSchema: StructType,
     blockId: Long, blockLength: Long, locations: Array[String],
     ports: Array[Int]) extends InputPartition[InternalRow] {
   override def preferredLocations: Array[String] = locations
-  //override def preferredLocations: Array[String] =
-  //  locations.map(_.split(":")(0))
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
     new NahPartitionReader(dataSchema, requiredSchema,

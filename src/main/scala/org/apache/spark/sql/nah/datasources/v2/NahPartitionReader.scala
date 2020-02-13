@@ -16,56 +16,51 @@ class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType,
     blockId: Long, blockLength: Long, locations: Array[String],
     ports: Array[Int]) extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
+
   val parser = new CsvParser(dataSchema, requiredSchema, csvOptions)
+
   val inputStream = {
     val blockData = new Array[Byte](blockLength.toInt)
 
-    // read blocks from preferred locations first
-    // TODO - find which node we're on
-    breakable { for (location <- locations) {
-      // TODO - remove
-      val localMachine = InetAddress.getLocalHost()
-      localMachine.getHostAddress() // gives us the ip
-      println("LOCAL_HOST: " + localMachine.getHostName()
-        + " - QUERY_HOST: " + location)
-
-      //val blockStart = System.currentTimeMillis
-      val locationFields = location.split(":")
-      val (ipAddress, port) = (locationFields(0), locationFields(1).toInt)
-
-      val socket = new Socket(ipAddress, port)
-      val dataOut = new DataOutputStream(socket.getOutputStream)
-      val dataIn = new DataInputStream(socket.getInputStream)
-
-      // retrieve block from host
-      dataOut.writeShort(28); // protocol version
-      dataOut.write(83); // op - ReadBlockDirect
-      dataOut.write(0); // protobuf length
-      dataOut.writeLong(blockId);
-      dataOut.writeLong(0);
-      dataOut.writeLong(blockLength);
-
-      var offset = 0;
-      var bytesRead = 0;
-      while (offset < blockData.length) {
-        bytesRead = dataIn.read(blockData, offset,
-          blockData.length - offset)
-        offset += bytesRead
+    // determine ipAddress and port - favor local machine
+    var index = 0 
+    val localIpAddress = InetAddress.getLocalHost().getHostAddress()
+    for ((location, i) <- locations.zipWithIndex) {
+      if (location == localIpAddress) {
+        index = i
       }
+    }
 
-      // send success indicator
-      dataOut.writeByte(0);
+    val (ipAddress, port) = (locations(index), ports(index))
+    //println("read block " + blockId + " from " + ipAddress + ":" + port)
 
-      // close streams
-      dataIn.close
-      dataOut.close
-      socket.close
+    val socket = new Socket(ipAddress, port)
+    val dataOut = new DataOutputStream(socket.getOutputStream)
+    val dataIn = new DataInputStream(socket.getInputStream)
 
-      //val blockDuration = System.currentTimeMillis - blockStart
-      //println("NahPartitionReader - block - " + blockDuration)
+    // retrieve block from host
+    dataOut.writeShort(28); // protocol version
+    dataOut.write(83); // op - ReadBlockDirect
+    dataOut.write(0); // protobuf length
+    dataOut.writeLong(blockId);
+    dataOut.writeLong(0);
+    dataOut.writeLong(blockLength);
 
-      break // TODO - check for success
-    } }
+    var offset = 0;
+    var bytesRead = 0;
+    while (offset < blockData.length) {
+      bytesRead = dataIn.read(blockData, offset,
+        blockData.length - offset)
+      offset += bytesRead
+    }
+
+    // send success indicator
+    dataOut.writeByte(0);
+
+    // close streams
+    dataIn.close
+    dataOut.close
+    socket.close
 
     // open input streams
     new ByteArrayInputStream(blockData)
