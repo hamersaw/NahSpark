@@ -11,7 +11,10 @@ import scala.collection.JavaConversions._
 class NahPartition(dataSchema: StructType, requiredSchema: StructType,
     blockId: Long, blockLength: Long, locations: Array[String])
     extends InputPartition[InternalRow] {
-  override def preferredLocations: Array[String] = locations
+  //override def preferredLocations: Array[String] = locations
+  //override def preferredLocations: Array[String] = Array("129.82.208.137", "129.82.208.138", "129.82.208.139", "129.82.208.140")
+  override def preferredLocations: Array[String] =
+    locations.map(_.split(":")(0))
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
     new NahPartitionReader(dataSchema, requiredSchema,

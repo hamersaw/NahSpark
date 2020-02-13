@@ -36,9 +36,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
+    val filterStart = System.currentTimeMillis
     // compile nah filter query
-    //val nahQueryExpressions = new ListBuffer[String]()
-
     val latitude = getLatitudeFeature
     val longitude = getLongitudeFeature
     var minLat= -java.lang.Double.MAX_VALUE
@@ -48,8 +47,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
     // process filters
     for (filter <- filters) {
-      //println("NahSourceReader process filter: " + filter)
-
       filter match {
         case GreaterThan(a, b) => {
           if (a == latitude) {
@@ -117,6 +114,10 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       nahQuery += "g=" + geohashBound
     }
 
+    val filterDuration = System.currentTimeMillis - filterStart
+    println("filterDuration: " + filterDuration)
+
+    val blockLocsStart = System.currentTimeMillis
     // submit requests within threads
     val threadCount = 4
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
@@ -219,6 +220,10 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
+    val blockLocsDuration = System.currentTimeMillis - blockLocsStart
+    println("blockLocsDuration: " + blockLocsDuration)
+
+    val partitionsStart = System.currentTimeMillis
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
     var primaryLocations: Map[String, Int] = Map()
@@ -264,6 +269,9 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       partitions += new NahPartition(dataSchema, requiredSchema,
         blockId, lbProto.getB.getNumBytes, locations.toArray)
     } 
+
+    val partitionsDuration = System.currentTimeMillis - partitionsStart
+    println("partitionsDuration: " + partitionsDuration)
 
     partitions
   }

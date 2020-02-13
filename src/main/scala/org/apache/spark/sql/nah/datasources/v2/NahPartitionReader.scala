@@ -6,7 +6,7 @@ import org.apache.spark.sql.sources.v2.reader.InputPartitionReader
 import org.apache.spark.sql.types.StructType
 
 import java.io.{BufferedInputStream, ByteArrayInputStream, DataInputStream, DataOutputStream}
-import java.net.Socket
+import java.net.{InetAddress, Socket}
 import java.util.Scanner
 
 import scala.collection.JavaConversions._
@@ -23,6 +23,12 @@ class NahPartitionReader(dataSchema: StructType,
     // read blocks from preferred locations first
     // TODO - find which node we're on
     breakable { for (location <- locations) {
+      // TODO - remove
+      val localMachine = InetAddress.getLocalHost()
+      localMachine.getHostAddress() // gives us the ip
+      println("LOCAL_HOST: " + localMachine.getHostName()
+        + " - QUERY_HOST: " + location)
+
       //val blockStart = System.currentTimeMillis
       val locationFields = location.split(":")
       val (ipAddress, port) = (locationFields(0), locationFields(1).toInt)
