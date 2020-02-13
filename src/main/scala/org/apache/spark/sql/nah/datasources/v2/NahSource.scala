@@ -269,6 +269,11 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     }
 
     // return new NahSourceReader
-    new NahSourceReader(fileMap, dataSchema, fileFormat, formatFields)
+    val queryThreads = options.get("queryThreads").orElse("4").toInt
+    val maxPartitionBytes =
+      options.get("maxPartitionBytes").orElse("33554432").toLong
+
+    new NahSourceReader(fileMap, dataSchema, fileFormat,
+      formatFields, queryThreads, maxPartitionBytes)
   }
 }

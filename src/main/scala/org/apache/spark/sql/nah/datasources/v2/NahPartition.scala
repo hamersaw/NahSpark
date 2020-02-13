@@ -9,12 +9,12 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.JavaConversions._
 
 class NahPartition(dataSchema: StructType, requiredSchema: StructType,
-    blockId: Long, blockLength: Long, locations: Array[String],
+    blockId: Long, offset: Long, length: Long, locations: Array[String],
     ports: Array[Int]) extends InputPartition[InternalRow] {
   override def preferredLocations: Array[String] = locations
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
     new NahPartitionReader(dataSchema, requiredSchema,
-      blockId, blockLength, locations, ports)
+      blockId, offset, length, locations, ports)
   }
 }

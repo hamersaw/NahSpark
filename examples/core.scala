@@ -1,4 +1,4 @@
-// ./bin/spark-shell --jars ~/Projects/NahSpark/build/libs/NahSpark-0.1.4-all.jar
+// ./bin/spark-shell --jars ~/Projects/NahSpark/build/libs/NahSpark-0.1.5-all.jar
 
 // register NahGeometryUDT and User Defined Functions
 import org.apache.spark.sql.nah.NahRegister
@@ -15,12 +15,13 @@ val opStart = System.currentTimeMillis
 //df.filter("nahGeohash = '8bcc'").count
 //df.select("_c43").map(x=>x.getString(0).toDouble).map(x=>x-(x%10)).groupBy("value").count().show();
 
-df.createOrReplaceTempView("nah_test")
+//df.createOrReplaceTempView("nah_test")
 
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Distance(BuildPoint(_c0, _c1), BuildPoint(0.0, 10.0)) < 10")
 
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Within(BuildPoint(_c0, _c1), BuildPolygon(0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0))")
-var spatialDf = spark.sql("SELECT * FROM nah_test WHERE 0.0 < _c0")
+//var spatialDf = spark.sql("SELECT * FROM nah_test WHERE 0.0 < _c0")
+val spatialDf = df.filter("_c0 >= 0.0")
 val count = spatialDf.count()
 println("spatialDf.count() = " + count)
 

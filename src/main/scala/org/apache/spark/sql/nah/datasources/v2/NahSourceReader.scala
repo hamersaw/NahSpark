@@ -21,8 +21,8 @@ import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
 class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
-    dataSchema: StructType, fileFormat: String,
-    formatFields: Map[String, String]) extends DataSourceReader
+    dataSchema: StructType, fileFormat: String, formatFields: Map[String, String], 
+    queryThreads: Int, maxPartitionBytes: Long) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     val schema = StructType(dataSchema)
@@ -113,12 +113,11 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     }
 
     // submit requests within threads
-    val threadCount = 4
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
     val outputQueue = new ArrayBlockingQueue[Any](128)
 
     val threads: List[Thread] = new ArrayList()
-    for (i <- 1 to threadCount) {
+    for (i <- 1 to queryThreads) {
       val thread = new Thread() {
         override def run() {
           breakable { while (true) {
@@ -173,7 +172,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       }
     }
 
-    for (i <- 1 to threadCount) {
+    for (i <- 1 to queryThreads) {
       inputQueue.put(("", 0, "", 0))
     }
 
@@ -181,7 +180,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
 
     var poisonCount = 0
-    while (poisonCount < threadCount) {
+    while (poisonCount < queryThreads) {
       val result = outputQueue.take()
       if (!result.isInstanceOf[HdfsProtos.LocatedBlocksProto]) {
         poisonCount += 1
@@ -189,16 +188,26 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
         val lbsProto = result.asInstanceOf[HdfsProtos.LocatedBlocksProto]
 
         for (lbProto <- lbsProto.getBlocksList) {
+          println("partitioning block " + lbProto.getB.getBlockId)
           // parse block addresses
           val locations = lbProto.getLocsList
             .map(_.getId.getIpAddr).toArray
           val ports = lbProto.getLocsList
             .map(_.getId.getXferPort).toArray
 
-          // initialize block partition
-          partitions += new NahPartition(dataSchema,
-            requiredSchema, lbProto.getB.getBlockId,
-            lbProto.getB.getNumBytes, locations, ports)
+          var offset = 0l
+          val blockLength = lbProto.getB.getNumBytes
+          while (offset < blockLength) {
+            val length = scala.math.min(maxPartitionBytes + 512,
+              blockLength - offset)
+
+            println("    " + offset + " - " + length)
+            // initialize block partition
+            partitions += new NahPartition(dataSchema, requiredSchema,
+              lbProto.getB.getBlockId, offset, length, locations, ports)
+
+            offset += length
+          }
         }
       }
     }
