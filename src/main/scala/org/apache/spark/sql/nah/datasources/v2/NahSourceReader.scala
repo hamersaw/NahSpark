@@ -184,7 +184,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     }
 
     // retrieve block list
-    var hosts: Map[String, HashSet[Long]] = Map()
+    /*var hosts: Map[String, HashSet[Long]] = Map()
     var blocks: Map[Long, HdfsProtos.LocatedBlockProto] = Map()
 
     var poisonCount = 0
@@ -218,7 +218,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           }
         }
       }
-    }
+    }*/
 
     val blockLocsDuration = System.currentTimeMillis - blockLocsStart
     println("blockLocsDuration: " + blockLocsDuration)
@@ -226,9 +226,33 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
     val partitionsStart = System.currentTimeMillis
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
-    var primaryLocations: Map[String, Int] = Map()
+    //var primaryLocations: Map[String, Int] = Map()
 
-    for ((blockId, lbProto) <- blocks) {
+    // NEW!
+    var poisonCount = 0
+    while (poisonCount < threadCount) {
+      val result = outputQueue.take()
+      if (!result.isInstanceOf[HdfsProtos.LocatedBlocksProto]) {
+        poisonCount += 1
+      } else {
+        val lbsProto = result.asInstanceOf[HdfsProtos.LocatedBlocksProto]
+
+        for (lbProto <- lbsProto.getBlocksList) {
+          // parse block addresses
+          val locations = lbProto.getLocsList
+            .map(_.getId.getIpAddr).toArray
+          val ports = lbProto.getLocsList
+            .map(_.getId.getXferPort).toArray
+
+          // initialize block partition
+          partitions += new NahPartition(dataSchema,
+            requiredSchema, lbProto.getB.gtBlockId,
+            lbProto.getB.getNumBytes, locations, ports)
+        }
+      }
+    }
+
+    /*for ((blockId, lbProto) <- blocks) {
       val locations = new ListBuffer[String]()
       breakable { while (true) {
         // find host containing block with shortest blockId list
@@ -268,7 +292,7 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       // initialize block partition
       partitions += new NahPartition(dataSchema, requiredSchema,
         blockId, lbProto.getB.getNumBytes, locations.toArray)
-    } 
+    }*/
 
     val partitionsDuration = System.currentTimeMillis - partitionsStart
     println("partitionsDuration: " + partitionsDuration)

@@ -12,9 +12,9 @@ import java.util.Scanner
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
-class NahPartitionReader(dataSchema: StructType,
-    requiredSchema: StructType, blockId: Long, blockLength: Long,
-    locations: Array[String]) extends InputPartitionReader[InternalRow] {
+class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType, 
+    blockId: Long, blockLength: Long, locations: Array[String],
+    ports: Array[Int]) extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
   val parser = new CsvParser(dataSchema, requiredSchema, csvOptions)
   val inputStream = {
