@@ -14,14 +14,15 @@ import scala.util.control.Breaks._
 
 class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType, 
     blockId: Long, offset: Long, length: Long, firstBlock: Boolean,
-    lookahead: Long, locations: Array[String], ports: Array[Int])
+    lookAhead: Long, locations: Array[String], ports: Array[Int])
     extends InputPartitionReader[InternalRow] {
   val csvOptions = new CSVOptions(Map(), false, "TODO - time zone")
 
   val parser = new CsvParser(dataSchema, requiredSchema, csvOptions)
+  var bytesParsed = 0l
 
   val inputStream = {
-    val blockData = new Array[Byte](length.toInt)
+    val blockData = new Array[Byte](length.toInt + lookAhead.toInt)
 
     // determine ipAddress and port - favor local machine
     var index = 0 
@@ -44,7 +45,7 @@ class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType,
     dataOut.write(0);                       // protobuf length
     dataOut.writeLong(blockId);             // block id
     dataOut.writeLong(offset);              // offset
-    dataOut.writeLong(length + lookahead);  // length
+    dataOut.writeLong(length + lookAhead);  // length
 
     var dataIndex = 0;
     var bytesRead = 0;
@@ -73,7 +74,8 @@ class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType,
  
     // if not first block -> skip the first line
     if (!firstBlock) {
-      scanner.nextLine
+      val line = scanner.nextLine
+      this.bytesParsed += line.length() + 1
     }
 
     scanner
@@ -82,9 +84,10 @@ class NahPartitionReader(dataSchema: StructType, requiredSchema: StructType,
   var row = parseNextLine
 
   protected def parseNextLine(): InternalRow = {
-    // TODO - track bytes read so that we don't double read in the 'lookahead' bytes
-    if (this.scanner.hasNextLine) {
+    if (this.bytesParsed <= length
+        && this.scanner.hasNextLine) {
       val line = this.scanner.nextLine
+      this.bytesParsed += line.length() + 1
       parser.parse(line)
     } else {
       null

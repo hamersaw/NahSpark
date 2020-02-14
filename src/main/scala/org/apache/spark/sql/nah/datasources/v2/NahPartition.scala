@@ -10,12 +10,12 @@ import scala.collection.JavaConversions._
 
 class NahPartition(dataSchema: StructType, requiredSchema: StructType,
     blockId: Long, offset: Long, length: Long, firstBlock: Boolean, 
-    lookahead: Long, locations: Array[String], ports: Array[Int])
+    lookAhead: Long, locations: Array[String], ports: Array[Int])
     extends InputPartition[InternalRow] {
   override def preferredLocations: Array[String] = locations
 
   override def createPartitionReader: InputPartitionReader[InternalRow] = {
     new NahPartitionReader(dataSchema, requiredSchema, blockId,
-      offset, length, firstBlock, lookahead, locations, ports)
+      offset, length, firstBlock, lookAhead, locations, ports)
   }
 }

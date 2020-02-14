@@ -21,8 +21,9 @@ import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
 class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
-    dataSchema: StructType, fileFormat: String, formatFields: Map[String, String], 
-    queryThreads: Int, maxPartitionBytes: Long) extends DataSourceReader
+    dataSchema: StructType, fileFormat: String,
+    formatFields: Map[String, String], queryThreads: Int,
+    maxPartitionBytes: Long, lookAheadBytes: Long) extends DataSourceReader
     with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   private var requiredSchema = {
     val schema = StructType(dataSchema)
@@ -199,13 +200,13 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           while (offset < blockLength) {
             val length = scala.math.min(maxPartitionBytes,
               blockLength - offset)
-            val lookahead = scala.math.min(1024,
+            val lookAhead = scala.math.min(lookAheadBytes,
               blockLength - (offset + length))
 
             // initialize block partition
             partitions += new NahPartition(dataSchema,
               requiredSchema, lbProto.getB.getBlockId, offset,
-              length, offset == 0, lookahead, locations, ports)
+              length, offset == 0, lookAhead, locations, ports)
 
             offset += length
           }
