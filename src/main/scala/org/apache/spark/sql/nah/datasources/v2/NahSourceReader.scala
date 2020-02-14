@@ -188,7 +188,6 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
         val lbsProto = result.asInstanceOf[HdfsProtos.LocatedBlocksProto]
 
         for (lbProto <- lbsProto.getBlocksList) {
-          println("partitioning block " + lbProto.getB.getBlockId)
           // parse block addresses
           val locations = lbProto.getLocsList
             .map(_.getId.getIpAddr).toArray
@@ -198,13 +197,15 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           var offset = 0l
           val blockLength = lbProto.getB.getNumBytes
           while (offset < blockLength) {
-            val length = scala.math.min(maxPartitionBytes + 512,
+            val length = scala.math.min(maxPartitionBytes,
               blockLength - offset)
+            val lookahead = scala.math.min(1024,
+              blockLength - (offset + length))
 
-            println("    " + offset + " - " + length)
             // initialize block partition
-            partitions += new NahPartition(dataSchema, requiredSchema,
-              lbProto.getB.getBlockId, offset, length, locations, ports)
+            partitions += new NahPartition(dataSchema,
+              requiredSchema, lbProto.getB.getBlockId, offset,
+              length, offset == 0, lookahead, locations, ports)
 
             offset += length
           }
