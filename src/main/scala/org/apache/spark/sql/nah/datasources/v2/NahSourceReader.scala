@@ -18,9 +18,17 @@ import java.util.{ArrayList, List}
 import java.util.concurrent.ArrayBlockingQueue
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
-class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
+//class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
+//    dataSchema: StructType, fileFormat: String,
+//    formatFields: Map[String, String], queryThreads: Int,
+//    maxPartitionBytes: Long, lookAheadBytes: Long) extends DataSourceReader
+//    with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
+class NahSourceReader(blockMap: Map[Long, Long],
+    blockLocations: Map[Long, ListBuffer[String]],
+    datanodeMap: Map[String, HdfsProtos.DatanodeIDProto], 
     dataSchema: StructType, fileFormat: String,
     formatFields: Map[String, String], queryThreads: Int,
     maxPartitionBytes: Long, lookAheadBytes: Long) extends DataSourceReader
@@ -36,6 +44,8 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
+    val filterCompileStart = System.currentTimeMillis // TODO - remove
+
     // compile nah filter query
     val latitude = getLatitudeFeature
     val longitude = getLongitudeFeature
@@ -113,7 +123,21 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
       nahQuery += "g=" + geohashBound
     }
 
-    // submit requests within threads
+    // TODO - remove
+    val filterCompileDuration = System.currentTimeMillis - filterCompileStart
+    println("filterCompileDuration: " + filterCompileDuration)
+
+    val filterExecStart = System.currentTimeMillis // TODO - remove
+
+    // TODO - execute filter
+
+    // TODO - remove
+    val filterExecDuration = System.currentTimeMillis - filterExecStart
+    println("filterExecDuration: " + filterExecDuration)
+
+    val partitionStart = System.currentTimeMillis // TODO - remove
+
+    /*// submit requests within threads
     val inputQueue = new ArrayBlockingQueue[(String, Int, String, Long)](4096)
     val outputQueue = new ArrayBlockingQueue[Any](128)
 
@@ -155,9 +179,9 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
       thread.start()
       threads.append(thread)
-    }
+    }*/
 
-    // push paths down pipeline
+    /*// push paths down pipeline
     for ((id, files) <- this.fileMap) {
       // parse ipAddress, port
       val idFields = id.split(":")
@@ -175,12 +199,12 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
 
     for (i <- 1 to queryThreads) {
       inputQueue.put(("", 0, "", 0))
-    }
+    }*/
 
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
 
-    var poisonCount = 0
+    /*var poisonCount = 0
     while (poisonCount < queryThreads) {
       val result = outputQueue.take()
       if (!result.isInstanceOf[HdfsProtos.LocatedBlocksProto]) {
@@ -212,7 +236,33 @@ class NahSourceReader(fileMap: Map[String, Seq[FileStatus]],
           }
         }
       }
+    }*/
+
+    // iterate over blocks
+    for ((blockId, blockLength) <- blockMap) {
+      val locations = blockLocations.get(blockId).orNull
+        .map(datanodeMap.get(_).orNull.getIpAddr).toArray
+      val ports = blockLocations.get(blockId).orNull
+        .map(datanodeMap.get(_).orNull.getXferPort).toArray
+
+      var offset = 0l
+      while (offset < blockLength) {
+        val length = scala.math.min(maxPartitionBytes,
+          blockLength - offset)
+        val lookAhead = scala.math.min(lookAheadBytes,
+          blockLength - (offset + length))
+
+        // initialize block partition
+        partitions += new NahPartition(dataSchema, requiredSchema, blockId,
+          offset, length, offset == 0, lookAhead, locations, ports)
+
+        offset += length
+      }
     }
+
+    // TODO - remove
+    val partitionDuration = System.currentTimeMillis - partitionStart
+    println("partitionDuration: " + partitionDuration)
 
     partitions
   }

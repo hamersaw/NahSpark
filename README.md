@@ -15,6 +15,26 @@ NahSpark (Needle and Hand Spark) is a set of spatiotemporal Spark extensions imp
     val named_df = lookupMap.foldLeft(df)(
         (acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
 
+## SPATIAL JOINS
+##### geospark
+core/src/main/java/org/datasyslab/geospark/spatialOperator/JoinQuery.java
+core/src/main/java/org/datasyslab/geospark/joinJudgement/JudgementBase.java
+
+// initialize leftRDD
+val leftRDD = new PointRDD(sc, points, FileDataSplitter.CSV,
+    false, numPartitions, StorageLevel.MEMORY_ONLY)
+leftRDD.spatialPartitioning(partitioningScheme)
+leftRDD.buildIndex(idx,true)
+leftRDD.indexedRDD.persist(StorageLevel.MEMORY_ONLY)
+leftRDD.spatialPartitionedRDD.persist(StorageLevel.MEMORY_ONLY)
+
+// redacted - same for rightRDD
+
+count = JoinQuery.SpatialJoinQuery(leftRDD, rightRDD, true, false).count()
+// internally leftRdd.spatialRDD.zipPartitions(rightRDD.indexedRDD, judgement) -- or something like this
+    // judgement is an iterator over the RDD's -- optimally assumes spatially sorted RDD
+    // judgements may be for an indexed leftRDD, indexed rightRDD, or neither
+
 ## REFERENCES
 - https://github.com/locationtech/jts
     - https://locationtech.github.io/jts/javadoc/

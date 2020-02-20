@@ -34,25 +34,31 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     // discover fileStatus for paths
     var storagePolicyId: Option[Int] = None
     var storagePolicy = ""
-    var fileMap = Map[String, ListBuffer[FileStatus]]()
+    //var fileMap = Map[String, ListBuffer[FileStatus]]() // TODO - remove
+
+    var blockMap = Map[Long, Long]()
+    var blockLocations = Map[Long, ListBuffer[String]]()
+    var datanodeMap = Map[String, HdfsProtos.DatanodeIDProto]()
+
+    val filesStart = System.currentTimeMillis // TODO - remove
 
     for (url <- options.paths) {
       // parse url path
-      val (ipAddress, port, path) = Parser.parseHdfsUrl(url)
+      val (host, port, path) = Parser.parseHdfsUrl(url)
+      val sourceId = host + ":" + port
 
-      val id = ipAddress + ":" + port
       var remainingEntries = -1
       var startAfterEntry = ByteString.EMPTY
 
       while (remainingEntries != 0) {
         // send GetFileInfo request
-        val glRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
+        val glRpcClient = new RpcClient(host, port, "ATLAS-SPARK",
           "org.apache.hadoop.hdfs.protocol.ClientProtocol")
         val glRequest = ClientNamenodeProtocolProtos
           .GetListingRequestProto.newBuilder()
             .setSrc(path)
             .setStartAfter(startAfterEntry)
-            .setNeedLocation(false).build
+            .setNeedLocation(true).build
 
         val glIn = glRpcClient.send("getListing", glRequest)
         val glResponse = ClientNamenodeProtocolProtos
@@ -73,7 +79,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
             case None => {
               storagePolicyId = Some(hfsProto.getStoragePolicy)
               val gspRpcClient =
-                new RpcClient(ipAddress, port, "NahSpark",
+                new RpcClient(host, port, "NahSpark",
                 "org.apache.hadoop.hdfs.protocol.ClientProtocol")
               val gspRequest = ClientNamenodeProtocolProtos
                 .GetStoragePolicyRequestProto.newBuilder()
@@ -92,10 +98,37 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
             }
           }
    
-          // initialize FileStatus
+          // process file blocks
           hfsProto.getFileType match {
             case HdfsProtos.HdfsFileStatusProto.FileType.IS_FILE => {
-              // initialize file
+              // iterate over file blocks
+              for (lbProto <- hfsProto.getLocations.getBlocksList) {
+                val blockId = lbProto.getB.getBlockId
+                val blockLength = lbProto.getB.getNumBytes
+
+                // iterate over block locations
+                val locations = new ListBuffer[String]()
+                for (diProto <- lbProto.getLocsList) {
+                  val didProto = diProto.getId
+                  val locationId = sourceId + "-" + didProto.getDatanodeUuid
+                  
+                  // add datanodeUuid to this blocks locations
+                  locations += locationId
+
+                  // populate datanodeMap with datanodeIdProto
+                  if (!datanodeMap.contains(locationId)) {
+                    datanodeMap += (locationId -> didProto)
+                    //println("added locationId '" + locationId + "'")
+                  }
+                }
+
+                blockMap += (blockId -> blockLength)
+                blockLocations += (blockId -> locations)
+                //println("added block '" + blockId + "' locations:" + locations) 
+              }
+
+              // TODO - remove
+              /*// initialize file
               val filePath = new String(hfsProto.getPath.toByteArray)
               val file = new FileStatus(hfsProto.getLength, false, 
                 hfsProto.getBlockReplication, 
@@ -110,7 +143,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
                   files += file
                   fileMap += (id -> files)
                 }
-              }
+              }*/
             }
             case _ => {}
           }
@@ -123,6 +156,12 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         remainingEntries = dlProto.getRemainingEntries
       }
     }
+
+    // TODO - remove
+    val filesDuration = System.currentTimeMillis - filesStart
+    println("filesDuration: " + filesDuration)
+
+    val schemaStart = System.currentTimeMillis // TODO - remove
 
     // parse storagePolicy
     val pattern = Pattern.compile("(\\w+)\\((\\w+:\\w+)?(,\\s*\\w+:\\w+)*\\)");
@@ -146,6 +185,84 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     }
 
     // compile dataSchema
+    val dataSchema: StructType = {
+      val (blockId, blockLength) = blockMap.head
+      //println("compiling data schema from block '" + blockId + "'")
+
+      // get block data
+      val blockData = new Array[Byte](blockLength.toInt)
+      val blockLocationIds: Seq[String] =
+        blockLocations.get(blockId).orNull
+
+      breakable { for (locationId <- blockLocationIds) {
+
+        val didProto = datanodeMap.get(locationId).orNull
+        //println("querying for block locationId '" + locationId + "' " + didProto)
+
+        val socket = new Socket(didProto.getIpAddr, didProto.getXferPort)
+        val dataOut = new DataOutputStream(socket.getOutputStream)
+        val dataIn = new DataInputStream(socket.getInputStream)
+
+        dataOut.writeShort(28); // protocol version
+        dataOut.write(83); // op - ReadBlockDirect
+        dataOut.write(0); // protobuf length
+        dataOut.writeLong(blockId);
+        dataOut.writeLong(0);
+        dataOut.writeLong(blockLength);
+
+        var offset = 0;
+        var bytesRead = 0;
+        while (offset < blockData.length) {
+          bytesRead = dataIn.read(blockData, offset,
+            blockData.length - offset)
+          offset += bytesRead
+        }
+
+        // send success indicator
+        dataOut.writeByte(0);
+
+        // close streams
+        dataIn.close
+        dataOut.close
+        socket.close
+
+        //  TODO - check for success
+        break
+      } }
+
+      // parse field count from block
+      var delimiterCount = 0
+      val inputStream = new ByteArrayInputStream(blockData)
+      val bufferedInputStream = new BufferedInputStream(inputStream)
+      val scanner = new Scanner(bufferedInputStream, "UTF-8")
+
+      breakable { while (scanner.hasNextLine) {
+        val line = scanner.nextLine
+        val count = line.count(_ == ',')
+
+        if (delimiterCount < count) {
+          delimiterCount = count
+        } else if (delimiterCount == count) {
+          break
+        } else {
+          // TODO - throw error
+        }
+      }}
+
+      scanner.close()
+      bufferedInputStream.close()
+      inputStream.close()
+
+      // compile StructType
+      var dataSchema = new StructType()
+      for (i <- 0 to delimiterCount) {
+        dataSchema = dataSchema.add("_c" + i, DoubleType, true)
+      }
+
+      dataSchema
+    }
+
+    /*// compile dataSchema
     val dataSchema: StructType =
         options.get("inferSchema").orElse("false") match {
       case "true" => {
@@ -168,16 +285,17 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         }
       }
       case _ => {
+        // TODO - get first block
         // read first block
         val (id, files) = fileMap.head
         val file = files.head
 
-        // parse ipAddress, port
+        // parse host, port
         val idFields = id.split(":")
-        val (ipAddress, port) = (idFields(0), idFields(1).toInt)
+        val (host, port) = (idFields(0), idFields(1).toInt)
 
         // send GetFileInfo request
-        val gblRpcClient = new RpcClient(ipAddress, port, "ATLAS-SPARK",
+        val gblRpcClient = new RpcClient(host, port, "ATLAS-SPARK",
           "org.apache.hadoop.hdfs.protocol.ClientProtocol")
         val gblRequest = ClientNamenodeProtocolProtos
           .GetBlockLocationsRequestProto.newBuilder()
@@ -266,7 +384,11 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
 
         dataSchema
       }
-    }
+    }*/
+
+    // TODO - remove
+    val schemaDuration = System.currentTimeMillis - schemaStart
+    println("schemaDuration: " + schemaDuration)
 
     // return new NahSourceReader
     val queryThreads = options.get("queryThreads").orElse("16").toInt
@@ -275,7 +397,10 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     val lookAheadBytes =
       options.get("lookAheadBytes").orElse("2048").toInt
 
-    new NahSourceReader(fileMap, dataSchema, fileFormat,
-      formatFields, queryThreads, maxPartitionBytes, lookAheadBytes)
+    //new NahSourceReader(fileMap, dataSchema, fileFormat,
+    //  formatFields, queryThreads, maxPartitionBytes, lookAheadBytes)
+    new NahSourceReader(blockMap, blockLocations, datanodeMap, 
+      dataSchema, fileFormat, formatFields, queryThreads,
+      maxPartitionBytes, lookAheadBytes)
   }
 }

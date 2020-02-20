@@ -1,4 +1,4 @@
-// ./bin/spark-shell --jars ~/Projects/NahSpark/build/libs/NahSpark-0.1.5-all.jar
+// ./bin/spark-shell --jars ~/Projects/NahSpark/build/libs/NahSpark-0.1.6-all.jar
 
 // register NahGeometryUDT and User Defined Functions
 import org.apache.spark.sql.nah.NahRegister
