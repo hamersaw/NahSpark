@@ -21,7 +21,11 @@ val opStart = System.currentTimeMillis
 
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE Within(BuildPoint(_c0, _c1), BuildPolygon(0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0))")
 //var spatialDf = spark.sql("SELECT * FROM nah_test WHERE 0.0 < _c0")
-val spatialDf = df.filter("_c0 >= 0.0")
+//val spatialDf = df.filter("_c0 >= 0.0")
+
+//val spatialDf = df.filter("_c0 >= 41.484375 AND _c0 <= 42.18749 AND _c1 >= -143.4375 AND _c1 <= -142.03127") // 8bce
+val spatialDf = df.filter("_c0 >= 40.78125 AND _c0 <= 41.484364 AND _c1 >= -143.4375 AND _c1 <= -142.03127") // 8bcc
+//val spatialDf = df.filter("_c0 >= 11.25 AND _c0 <= 22.49999 AND _c1 >= -135 AND _c1 <= -112.50001") // 86
 val count = spatialDf.count()
 println("spatialDf.count() = " + count)
 

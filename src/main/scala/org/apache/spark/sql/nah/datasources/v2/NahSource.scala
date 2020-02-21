@@ -195,7 +195,6 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         blockLocations.get(blockId).orNull
 
       breakable { for (locationId <- blockLocationIds) {
-
         val didProto = datanodeMap.get(locationId).orNull
         //println("querying for block locationId '" + locationId + "' " + didProto)
 
