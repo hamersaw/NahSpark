@@ -22,11 +22,57 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
+object NahCache {
+  var map = Map[String, (Map[Long, Long],
+      Map[Long, ListBuffer[String]],
+      Map[String, HdfsProtos.DatanodeIDProto], StructType, 
+      String, Map[String, String])]()
+
+  def put(paths: String, blockMap: Map[Long, Long],
+      blockLocations: Map[Long, ListBuffer[String]],
+      datanodeMap: Map[String, HdfsProtos.DatanodeIDProto], 
+      dataSchema: StructType, fileFormat: String,
+      formatFields: Map[String, String]) = {
+    map += (paths -> (blockMap, blockLocations, 
+      datanodeMap, dataSchema, fileFormat, formatFields))
+  }
+
+  def contains(paths : String): Boolean = {
+    map.contains(paths)
+  }
+
+  def get(paths: String): (Map[Long, Long],
+      Map[Long, ListBuffer[String]],
+      Map[String, HdfsProtos.DatanodeIDProto], StructType, 
+      String, Map[String, String]) = {
+    map(paths)
+  }
+}
+
 class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
   override def shortName() = "nah"
 
   override def createReader(options: DataSourceOptions)
       : DataSourceReader = {
+    // parse source options
+    val maxInferSchemaBytes =
+      options.get("maxInferSchemaBytes").orElse("4194304").toLong
+    val maxPartitionBytes =
+      options.get("maxPartitionBytes").orElse("33554432").toLong
+    val lookAheadBytes =
+      options.get("lookAheadBytes").orElse("2048").toInt
+
+    // if paths are cached -> return NahSourceReader with cached values
+    val paths = options.paths.mkString("&")
+    if (NahCache.contains(paths)) {
+      val (blockMap, blockLocations, datanodeMap,
+        dataSchema, fileFormat, formatFields) = NahCache.get(paths)
+
+      return new NahSourceReader(blockMap, blockLocations,
+        datanodeMap, dataSchema, fileFormat, formatFields,
+        maxPartitionBytes, lookAheadBytes)
+    }
+
     // discover fileStatus for paths
     var storagePolicyId: Option[Int] = None
     var storagePolicy = ""
@@ -35,7 +81,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     var blockLocations = Map[Long, ListBuffer[String]]()
     var datanodeMap = Map[String, HdfsProtos.DatanodeIDProto]()
 
-    val filesStart = System.currentTimeMillis // TODO - remove
+    //val filesStart = System.currentTimeMillis // TODO - remove
 
     for (url <- options.paths) {
       // parse url path
@@ -133,10 +179,10 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     }
 
     // TODO - remove
-    val filesDuration = System.currentTimeMillis - filesStart
-    println("filesDuration: " + filesDuration)
+    //val filesDuration = System.currentTimeMillis - filesStart
+    //println("filesDuration: " + filesDuration)
 
-    val schemaStart = System.currentTimeMillis // TODO - remove
+    //val schemaStart = System.currentTimeMillis // TODO - remove
 
     // parse storagePolicy
     val pattern = Pattern.compile("(\\w+)\\((\\w+:\\w+)?(,\\s*\\w+:\\w+)*\\)");
@@ -165,7 +211,8 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
       //println("compiling data schema from block '" + blockId + "'")
 
       // get block data
-      val blockData = new Array[Byte](blockLength.toInt)
+      val readLength = scala.math.min(blockLength, maxInferSchemaBytes)
+      val blockData = new Array[Byte](readLength.toInt)
       val blockLocationIds: Seq[String] =
         blockLocations.get(blockId).orNull
 
@@ -182,7 +229,7 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
         dataOut.write(0); // protobuf length
         dataOut.writeLong(blockId);
         dataOut.writeLong(0);
-        dataOut.writeLong(blockLength);
+        dataOut.writeLong(blockData.length);
 
         var offset = 0;
         var bytesRead = 0;
@@ -237,15 +284,14 @@ class NahSource extends DataSourceV2 with ReadSupport with DataSourceRegister {
     }
 
     // TODO - remove
-    val schemaDuration = System.currentTimeMillis - schemaStart
-    println("schemaDuration: " + schemaDuration)
+    //val schemaDuration = System.currentTimeMillis - schemaStart
+    //println("schemaDuration: " + schemaDuration)
+
+    // add information to cache
+    NahCache.put(paths, blockMap, blockLocations, datanodeMap,
+      dataSchema, fileFormat, formatFields)
 
     // return new NahSourceReader
-    val maxPartitionBytes =
-      options.get("maxPartitionBytes").orElse("33554432").toLong
-    val lookAheadBytes =
-      options.get("lookAheadBytes").orElse("2048").toInt
-
     new NahSourceReader(blockMap, blockLocations, datanodeMap, dataSchema, 
       fileFormat, formatFields, maxPartitionBytes, lookAheadBytes)
   }

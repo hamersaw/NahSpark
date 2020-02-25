@@ -40,7 +40,7 @@ class NahSourceReader(blockMap: Map[Long, Long],
 
   override def planInputPartitions
       : List[InputPartition[InternalRow]] = {
-    val filterCompileStart = System.currentTimeMillis // TODO - remove
+    //val filterCompileStart = System.currentTimeMillis // TODO - remove
 
     // compile nah filter query
     val latitude = getLatitudeFeature
@@ -120,10 +120,10 @@ class NahSourceReader(blockMap: Map[Long, Long],
     }
 
     // TODO - remove
-    val filterCompileDuration = System.currentTimeMillis - filterCompileStart
-    println("filterCompileDuration: " + filterCompileDuration)
+    //val filterCompileDuration = System.currentTimeMillis - filterCompileStart
+    //println("filterCompileDuration: " + filterCompileDuration)
 
-    val filterExecStart = System.currentTimeMillis // TODO - remove
+    //val filterExecStart = System.currentTimeMillis // TODO - remove
 
     var processBlockMap = Map[Long, Long]()
     if (nahQuery.isEmpty) {
@@ -174,10 +174,10 @@ class NahSourceReader(blockMap: Map[Long, Long],
     }
 
     // TODO - remove
-    val filterExecDuration = System.currentTimeMillis - filterExecStart
-    println("filterExecDuration: " + filterExecDuration)
+    //val filterExecDuration = System.currentTimeMillis - filterExecStart
+    //println("filterExecDuration: " + filterExecDuration)
 
-    val partitionStart = System.currentTimeMillis // TODO - remove
+    //val partitionStart = System.currentTimeMillis // TODO - remove
 
     // compute partitions
     val partitions: List[InputPartition[InternalRow]] = new ArrayList()
@@ -210,8 +210,8 @@ class NahSourceReader(blockMap: Map[Long, Long],
     }
 
     // TODO - remove
-    val partitionDuration = System.currentTimeMillis - partitionStart
-    println("partitionDuration: " + partitionDuration)
+    //val partitionDuration = System.currentTimeMillis - partitionStart
+    //println("partitionDuration: " + partitionDuration)
 
     partitions
   }
